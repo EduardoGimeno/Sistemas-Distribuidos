@@ -1,0 +1,9 @@
+Características máquina lab102-199 (155.201.154.199):
+	- Núcleos: 4
+	- Memoria: 11 GB
+	- Disco: 1 TB (500 MB por usuario)
+
+Características máquina ASUS:
+	- Núcleos: 4
+	- Memoria: 8 GB
+	- Disco: 1 TB
