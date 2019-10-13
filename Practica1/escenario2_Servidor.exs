@@ -1,9 +1,9 @@
 # AUTORES: Eduardo Gimeno y Sergio Alvarez
 # NIAs: 721615 y 740241
-# FICHERO: escenario1_Servidor.exs
-# FECHA: 8 de octubre de 2019
-# TIEMPO: 1 hora
-# DESCRIPCION: Código del servidor para el escenario 1
+# FICHERO: escenario2_Servidor.exs
+# FECHA: 13 de octubre de 2019
+# TIEMPO: 30 min
+# DESCRIPCION: Código del servidor para el escenario 2
 defmodule Fib do
 	def fibonacci(0), do: 0
 	def fibonacci(1), do: 1
@@ -32,10 +32,11 @@ end
 defmodule Server do
     def listen_client do
         receive do
-            {c_pid, :fib, interval, op} -> time1 = :os.system_time(:millisecond)
-      						               fibonacci_list = Enum.map(interval, fn(x) -> Fib.fibonacci(x) end)
-      							           time2 = :os.system_time(:millisecond)
-                                           send(c_pid, {:result, time2 - time1, fibonacci_list})
+            {c_pid, :fib, interval, op} -> spawn(fn -> time1 = :os.system_time(:millisecond)
+      						                           fibonacci_list = Enum.map(interval, fn(x) -> Fib.fibonacci(x) end)
+      							                       time2 = :os.system_time(:millisecond)
+                                                       send(c_pid, {:result, time2 - time1, fibonacci_list})
+                                           end)
         end
         listen_client
     end

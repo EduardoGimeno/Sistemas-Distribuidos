@@ -26,32 +26,32 @@ defmodule Cliente do
 	launch(pid, op, n - 1)
   end 
   
-  def genera_workload(server_pid, escenario, time, imp) do
+  def genera_workload(server_pid, escenario, time) do
 	cond do
-		time <= 3 ->  launch(server_pid, imp, 8); Process.sleep(2000)
-		time == 4 ->  launch(server_pid, imp, 8);Process.sleep(round(:rand.uniform(100)/100 * 2000))
-		time <= 8 ->  launch(server_pid, imp, 8);Process.sleep(round(:rand.uniform(100)/1000 * 2000))
-		time == 9 -> launch(server_pid, imp, 8);Process.sleep(round(:rand.uniform(2)/2 * 2000))
+		time <= 3 ->  launch(server_pid, :fib, 8); Process.sleep(2000)
+		time == 4 ->  launch(server_pid, :fib, 8);Process.sleep(round(:rand.uniform(100)/100 * 2000))
+		time <= 8 ->  launch(server_pid, :fib, 8);Process.sleep(round(:rand.uniform(100)/1000 * 2000))
+		time == 9 -> launch(server_pid, :fib_tr, 8);Process.sleep(round(:rand.uniform(2)/2 * 2000))
 	end
-  	genera_workload(server_pid, escenario, rem(time + 1, 10), imp)
+  	genera_workload(server_pid, escenario, rem(time + 1, 10))
   end
 
-  def genera_workload(server_pid, escenario, imp) do
+  def genera_workload(server_pid, escenario) do
   	if escenario == 1 do
-		launch(server_pid, imp, 1)
+		launch(server_pid, :fib, 1)
 	else
-		launch(server_pid, imp, 4)
+		launch(server_pid, :fib, 4)
 	end
 	Process.sleep(2000)
-  	genera_workload(server_pid, escenario, imp)
+  	genera_workload(server_pid, escenario)
   end
   
 
-  def cliente(server_pid, tipo_escenario, imp) do
+  def cliente(server_pid, tipo_escenario) do
   	case tipo_escenario do
-		:uno -> genera_workload(server_pid, 1, imp)
-		:dos -> genera_workload(server_pid, 2, imp)
-		:tres -> genera_workload(server_pid, 3, 1, imp)
+		:uno -> genera_workload(server_pid, 1)
+		:dos -> genera_workload(server_pid, 2)
+		:tres -> genera_workload(server_pid, 3, 1)
 	end
   end
 end
