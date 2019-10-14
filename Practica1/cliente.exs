@@ -22,7 +22,7 @@ defmodule Cliente do
   end
 
   def launch(pid, op, n) when n != 1 do
-	send(pid, [self, op, 1..36, n])
+	spawn(Cliente, :launch_request, [pid, op, n])
 	launch(pid, op, n - 1)
   end 
   
