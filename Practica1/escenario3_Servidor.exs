@@ -4,8 +4,6 @@
 # FECHA: 13 de octubre de 2019
 # TIEMPO: 30 min
 # DESCRIPCION: Código del servidor para el escenario 3
-
-# Módulo que debe conocer los workers
 defmodule Fib do
 	def fibonacci(0), do: 0
 	def fibonacci(1), do: 1
@@ -31,7 +29,6 @@ defmodule Fib do
 	end
 end
 
-# Módulo que debe conocer el master
 defmodule Master do
     def listen_client(pool_pid) do
         receive do
@@ -47,20 +44,21 @@ defmodule Master do
 				{:worker, worker_pid} -> Node.spawn(worker_pid, fn -> time1 = :os.system_time(:millisecond)
       						                           				  fibonacci_list = Enum.map(interval, fn(x) -> Fib.fibonacci(x) end)
       							                       				  time2 = :os.system_time(:millisecond)
-                                                       				  send(c_pid, {:result, time2 - time1, fibonacci_list})) 
+                                                       				  send(c_pid, {:result, time2 - time1, fibonacci_list})
+										 end) 
 			end
 		else
 			receive do
 				{:worker, worker_pid} -> Node.spawn(worker_pid, fn -> time1 = :os.system_time(:millisecond)
       						                           				  fibonacci_list = Enum.map(interval, fn(x) -> Fib.fibonacci_tr(x) end)
       							                       				  time2 = :os.system_time(:millisecond)
-                                                       				  send(c_pid, {:result, time2 - time1, fibonacci_list})) 
+                                                       				  send(c_pid, {:result, time2 - time1, fibonacci_list})
+										 end) 
 			end
 		end
 	end
 end
 
-# Módulo que debe conocer el pool
 defmodule Pool do
     def listen_master([worker_pid|tail]) do
         receive do
@@ -72,4 +70,5 @@ defmodule Pool do
 	def initPool() do
 		filtered_list = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "worker" end)
 		listen_master(filtered_list)
+	end
 end
