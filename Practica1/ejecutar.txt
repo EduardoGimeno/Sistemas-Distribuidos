@@ -1,0 +1,35 @@
+Cliente: C
+Servidor: S
+Master: M
+Pool: P
+Worker número N: Wn
+
+Escenario 1:
+1. iex --name servidor@IP --cookie sd (S)
+2. iex --name cliente@IP --cookie sd (C)
+3. Process.register(self(), :server) (S)
+4. Node.connect(:"servidor@IP") (C)
+5. Server.listen_client (S)
+6. Cliente.cliente({:server, :"servidor@IP"}, :uno) (C)
+
+Escenario 2:
+1. iex --name servidor@IP --cookie sd (S)
+2. iex --name cliente@IP --cookie sd (C)
+3. Process.register(self(), :server) (S)
+4. Node.connect(:"servidor@IP") (C)
+5. Server.listen_client (S)
+6. Cliente.cliente({:server, :"servidor@IP"}, :dos) (C)
+
+Escenario 3:
+1. iex --name master@IP --cookie sd (M)
+2. iex --name cliente@IP --cookie sd (C)
+3. iex --name pool@IP --cookie sd (P)
+4. iex --name workerN@IP --cookie sd (Wn)
+5. Process.register(self(), :pool) (P)
+6. Process.register(self(), :master) (M)
+7. Node.connect(:"master@IP") (C)
+8. Node.connect(:"pool@IP") (M)
+9. Node.connect(:"pool@IP") (Wn)
+10. Pool.initPool (P)
+11. Master.listen_client({:pool, :"pool@IP"}) (M)
+12. Cliente.cliente({:server, :"servidor@IP"}, :tres) (C)
