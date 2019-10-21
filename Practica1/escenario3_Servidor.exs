@@ -4,6 +4,8 @@
 # FECHA: 13 de octubre de 2019
 # TIEMPO: 30 min
 # DESCRIPCION: Código del servidor para el escenario 3
+
+# Módulo que debe conocer los workers
 defmodule Fib do
 	def fibonacci(0), do: 0
 	def fibonacci(1), do: 1
@@ -29,26 +31,45 @@ defmodule Fib do
 	end
 end
 
-defmodule Server do
-    def listen_client do
+# Módulo que debe conocer el master
+defmodule Master do
+    def listen_client(pool_pid) do
         receive do
-            {c_pid, :fib, interval, op} -> spawn(fn->
-                send(pool_pid, {self, :nuevo_worker})
-                receive do
-                    {pool_pid, worker_pid} ->
-                        send(worker_pid {self, :fib, interval, op})
-                end
-            end)
+            {c_pid, imp, interval, op} -> spawn(fn -> callWorker(pool_pid, c_pid, imp, interval, op) end)
         end
-        listen_client
+        listen_client(pool_pid)
     end
+
+	def callWorker(pool_pid, c_pid, imp, interval, op) do
+		send(pool_pid, {self, :nuevo_worker})
+		if imp == :fib do
+			receive do
+				{:worker, worker_pid} -> Node.spawn(worker_pid, fn -> time1 = :os.system_time(:millisecond)
+      						                           				  fibonacci_list = Enum.map(interval, fn(x) -> Fib.fibonacci(x) end)
+      							                       				  time2 = :os.system_time(:millisecond)
+                                                       				  send(c_pid, {:result, time2 - time1, fibonacci_list})) 
+			end
+		else
+			receive do
+				{:worker, worker_pid} -> Node.spawn(worker_pid, fn -> time1 = :os.system_time(:millisecond)
+      						                           				  fibonacci_list = Enum.map(interval, fn(x) -> Fib.fibonacci_tr(x) end)
+      							                       				  time2 = :os.system_time(:millisecond)
+                                                       				  send(c_pid, {:result, time2 - time1, fibonacci_list})) 
+			end
+		end
+	end
 end
 
+# Módulo que debe conocer el pool
 defmodule Pool do
-    def listen_master do
+    def listen_master([worker_pid|tail]) do
         receive do
-            {server_pid, :nuevo_worker} ->
-                
+            {server_pid, :nuevo_worker} -> send(server_pid, {:worker, worker_pid}) 
         end
+		listen_master(tail++[worker_pid])
     end
+
+	def initPool() do
+		filtered_list = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "worker" end)
+		listen_master(filtered_list)
 end
