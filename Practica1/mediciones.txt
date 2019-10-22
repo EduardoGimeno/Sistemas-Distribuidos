@@ -25,3 +25,22 @@ T.Aislada		T.Total		(ms)
 12544			12545
 12809			12811
 12819			12821
+
+Escenario 3
+Implementacición	T.Aislada		T.Total		(ms)
+fib			1564			1566
+fib			1566			1568
+fib			1567			1569
+fib			1569			1571
+fib			1598			1600
+fib			1599			1601
+fib			1603			1605
+fib			1601			1602
+fib			1600			1602
+fib			1607			1609
+(Mediciones de fib_tr no consecutivas)
+fib_tr			0			2
+fib_tr			0			3
+fib_tr			0			2
+fib_tr			0			3
+fib_tr			0			2

@@ -1,8 +1,5 @@
 #!/bin/bash
 
-echo "Este script esta dedicado al lanzamiento de maquinas erlang"
-echo "==========================================================="
-
 conexion=0
 
 while [ "$conexion" -eq 0 ]
@@ -58,15 +55,13 @@ read nombre
 echo -n "Introduzca el nombre de la cookie: "
 read cookie
 
-gnome-terminal -e ssh a721615@"$ip" iex --name "$nombre"@"$ip" --cookie "$cookie"
-
 echo ""
-echo -n "¿Lanzar otra maquina? (y/n): "
+echo -n "¿Lanzar mas maquinas? (y/n): "
 read resp
 
-if [ "$resp" -eq "y" ]
+if [ "$resp" = "y" ]
 then
-	./lanza_maquina_erlang
-else
-	exit 0
+	gnome-terminal -e "./$0"
 fi
+
+ssh a721615@"$ip" iex --name "$nombre"@"$ip" --cookie "$cookie"

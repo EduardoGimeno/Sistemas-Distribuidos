@@ -11,6 +11,7 @@ defmodule Cliente do
 	receive do 
 		{:result, time, l} -> time2 = :os.system_time(:millisecond)
 							  IO.inspect(l)
+							  IO.inspect("Implementacion utilizada: #{op}")
 							  IO.inspect("Tiempo de ejecucion terea aislada: #{time}")
 							  IO.inspect("Tiempo total de respuesta: #{time2 - time1}")
 							  if (time2 - time1) > (time * 1.5), do: IO.puts("Violacion del QoS")
