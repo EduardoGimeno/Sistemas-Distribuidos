@@ -7,3 +7,8 @@ Características máquina ASUS:
 	- Núcleos: 4
 	- Memoria: 8 GB
 	- Disco: 1 TB
+
+Características máquina HP:
+    - Núcleos: 8
+    - Memoria: 8 GB
+    - Disco: 128 GB
