@@ -2,7 +2,7 @@
 # NIAs: 721615 y 740241
 # FICHERO: cliente.exs
 # FECHA: 8 de octubre de 2019
-# TIEMPO: 1 hora
+# TIEMPO: 30 min
 # DESCRIPCION: Código del cliente
 defmodule Cliente do
   def launch_request(pid, op, n) do
