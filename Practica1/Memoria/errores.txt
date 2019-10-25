@@ -1,0 +1,5 @@
+Problemas memoria práctica 1:
+	- Uso de gráficos análisis carga de trabajo
+	- Uso de gráfico validación en vez de tabla
+	- Referenciar la bibliografía en la memoria
+	- Justificar el uso de un arquitectura, por carga de trabajo y características de las máquinas

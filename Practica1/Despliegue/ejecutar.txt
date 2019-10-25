@@ -32,4 +32,4 @@ Escenario 3:
 9. Node.connect(:"pool@IP") (Wn)
 10. Pool.initPool (P)
 11. Master.listen_client({:pool, :"pool@IP"}) (M)
-12. Cliente.cliente({:server, :"servidor@IP"}, :tres) (C)
+12. Cliente.cliente({:master, :"master@IP"}, :tres) (C)
