@@ -2,8 +2,8 @@
 # NIAs: 721615 y 740241
 # FICHERO: alumno_lector.exs
 # FECHA: 2 de noviembre de 2019
-# TIEMPO: 3 horas
-# DESCRIPCION: Código del lector
+# TIEMPO: 
+# DESCRIPCION: Código del escritor
 defmodule Lector do
 
 ########################################################################################################
@@ -84,13 +84,13 @@ defmodule Lector do
         end
     end
 
-    # Genera una operación aleatoria para el lector
-    def generar_operacion_lector do
+    # Genera una operación aleatoria para el escritor
+    def generar_operacion_escritor do
         random_op = :rand.uniform(3)
         cond do
-            random_op == 1 -> :read_resumen
-            random_op == 2 -> :read_principal
-            random_op == 3 -> :read_entrega
+            random_op == 1 -> :update_resumen
+            random_op == 2 -> :update_principal
+            random_op == 3 -> :update_entrega
         end
     end
 
@@ -138,7 +138,8 @@ defmodule Lector do
     def protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state) do
         cs_state = :trying
         lrd = clock + 1
-        op_type = generar_operacion_lector
+        op_type = generar_operacion_escritor
+
         # Actualizar datos en subproceso encargado de recibir request
         send(rr_pid, {:update, cs_state, lrd, op_type})
         # Enviar peticiones de acceso al resto
@@ -150,11 +151,12 @@ defmodule Lector do
 
         # Pedir al repositorio los datos y mostrarlos por pantalla
         repositorio = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "repositorio" end)
-        send({:pprincipal, repositorio}, {op_type, self})
+        description = Randomizer.randomizer(20, :alpha)
+        send({:pprincipal, repositorio}, {op_type, self, description})
         op_type_s = Atom.to_string(op_type)
         receive do
-            {:reply, content} -> IO.puts(op_type_s)
-                                 IO.puts(content)
+            {:reply, :ok} -> IO.puts(op_type_s)
+                             IO.puts(description)
         end
         
         cs_state = :out
