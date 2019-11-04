@@ -34,6 +34,7 @@ defmodule Lector do
             
     # Cada proceso principal debe conocer los subprocesos encargados de las request y los permissions de los demás
     def begin_protocol(proc_id, total_sistema) do
+        IO.puts("START")
         # Inicializar variables que deben conocer desde un inicio los subprocesos encargados de recibir request y permission
         clock = 0
         lrd = clock
@@ -41,22 +42,27 @@ defmodule Lector do
 
         waiting_from = Enum.to_list 1..total_sistema
         waiting_from = List.delete(waiting_from, proc_id)
-
+        
+        IO.puts("SPAWN REQUEST Y PERMISSION")
         # Crear subprocesos encargados de recibir request y permission
         rr_pid = spawn(Lector, :request, [proc_id, lrd, clock, cs_state, [], :nil, []])
-        rp_pid = spawn(Lector, :permission, [waiting_from, waiting_from])
+        rp_pid = spawn(Lector, :permission, [waiting_from, waiting_from, self])
 
         # Enviar al resto de procesos princiaples los pids de los subprocesos encargados de recibir request y permission y recibir sus análogos
         filtered_list = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "alumno" || Atom.to_string(x) =~ "profesor" end)
+        IO.inspect(filtered_list)
         num_msg = length(filtered_list)
         enviar(filtered_list, rr_pid, proc_id)
-        rr_list = Enum.reverse(recibir(num_msg, []))
-
+        rr_list = recibir(num_msg, [])
+        
         filtered_list = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "alumno" || Atom.to_string(x) =~ "profesor" end)
+        IO.inspect(filtered_list)
+        num_msg = length(filtered_list)
         enviar(filtered_list, rp_pid, proc_id)
-        rp_list = Enum.reverse(recibir(num_msg,[]))
+        rp_list = recibir(num_msg,[])
         send(rp_pid, {:update, rp_list})
-
+        
+        IO.puts("RECIBIDOS Y ENVIADOS PID")
         # Dar aleatoriedad
         # Process.sleep(round(:rand.uniform(100)/100 * 2000))
         # Comenzar
@@ -136,6 +142,8 @@ defmodule Lector do
     #                                       FUNCIÓN PRINCIPAL                                              #
     ########################################################################################################
     def protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state) do
+        
+        IO.puts("INICIO DEL PROTOCOLO")
         cs_state = :trying
         lrd = clock + 1
         op_type = generar_operacion_lector
@@ -147,7 +155,8 @@ defmodule Lector do
         receive do
             {:ok} -> cs_state = :in
         end
-
+        
+        IO.puts("SECCION CRITICA")
         # Pedir al repositorio los datos y mostrarlos por pantalla
         repositorio = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "repositorio" end)
         send({:pprincipal, repositorio}, {op_type, self})
@@ -171,6 +180,7 @@ defmodule Lector do
             {:clock, new_clock} -> clock = new_clock 
         end
         
+        IO.puts("FUERA SECCION CRITICA")
         # Dar aleatoriedad
         # Process.sleep(round(:rand.uniform(100)/100 * 2000))
         protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state)
@@ -204,12 +214,13 @@ defmodule Lector do
     ########################################################################################################
     #                                    FUNCIÓN SUBPROCESO PERMISSION                                     #
     ########################################################################################################
-    def permission(waiting_from, waiting_from_permanent) do
+    def permission(waiting_from, waiting_from_permanent, main_pid) do
         if (length(waiting_from) == 0) do
-            permission(waiting_from_permanent,waiting_from_permanent)
+            send(main_pid,{:ok})
+            permission(waiting_from_permanent, waiting_from_permanent, main_pid)
         else     
             receive do
-                {:ack, proc_id} -> permission(List.delete(waiting_from, proc_id), waiting_from_permanent)
+                {:ack, proc_id} -> permission(List.delete(waiting_from, proc_id), waiting_from_permanent, main_pid)
             end
         end    
     end
