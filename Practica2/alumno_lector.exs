@@ -28,7 +28,7 @@ defmodule Lector do
     end
             
     # Cada proceso principal debe conocer los subprocesos encargados de las request y los permissions de los demás
-    def begin_begin_op(proc_id, total_sistema) do
+    def begin_protocol(proc_id, total_sistema) do
         # Inicializar variables que deben conocer desde un inicio los subprocesos encargados de recibir request y permission
         clock = 0
         lrd = clock
@@ -38,31 +38,131 @@ defmodule Lector do
         waiting_from = List.delete(waiting_from, proc_id)
 
         # Crear subprocesos encargados de recibir request y permission
-        rr_pid = spawn(Lector, :request, [proc_id, lrd, clock, cs_state])
+        rr_pid = spawn(Lector, :request, [proc_id, lrd, clock, cs_state, [], :nil, []])
         rp_pid = spawn(Lector, :permission, [waiting_from, waiting_from])
 
         # Enviar al resto de procesos princiaples los pids de los subprocesos encargados de recibir request y permission y recibir sus análogos
         filtered_list = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "alumno" || Atom.to_string(x) =~ "profesor" end)
         num_msg = length(filtered_list)
         enviar(filtered_list, rr_pid, proc_id)
-        # No se consigue obtener la lista
         rr_list = Enum.reverse(recibir(num_msg, []))
 
         filtered_list = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "alumno" || Atom.to_string(x) =~ "profesor" end)
         enviar(filtered_list, rp_pid, proc_id)
-        # No se consigue obtener la lista
         rp_list = Enum.reverse(recibir(num_msg,[]))
+        send(rp_pid, {:update, rp_list})
 
-        # Comenzar pre-protocol
-        begin_op(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state)
+        # Comenzar
+        protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state)
+    end
+    
+    # Enviar request a los subprocesos que las reciben
+    def enviar_request(lrd, proc_id, op_type, rr_list) do
+        if length(rr_list) != 0 do
+            proc_env = List.first(list)
+            send(proc_env, {:request, lrd, proc_id, op_type})
+            rr_list = List.delete_at(rr_list, 0)
+            enviar_request(lrd, proc_id, op_type, rr_list)
+        end
     end
 
-    def begin_op(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state) do
+    # Genera una operación aleatoria para el lector
+    def generar_operacion_lector do
+        random_op = :rand.uniform(3)
+        cond do
+            random_op == 1 -> :read_resumen
+            random_op == 2 -> :read_principal
+            random_op == 3 -> :read_entrega
+        end
+    end
+
+    # Enviar permission a los subprocesos que las reciben
+    def enviar_permission(proc_id, rp_list, perm_delayed) do
         # TODO
     end
 
-    def request(proc_id, lrd, clock, cs_state) do
+    # Función principal
+    def protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state) do
+        cs_state = :trying
+        lrd = clock + 1
+        op_type = generar_operacion_lector
+        # Actualizar datos en subproceso encargado de recibir request
+        send(rr_pid, {:update, cs_state, lrd, op_type})
+        # Enviar peticiones de acceso al resto
+        enviar_request(lrd, proc_id, op_type, rr_list)
+        # Recibir luz verde del subproceso encargado de recibir permission
+        receive do
+            {:ok} -> cs_state = :in
+        end
+
+        # Pedir al repositorio los datos y mostrarlos por pantalla
+        repositorio = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "repositorio" end)
+        send({:pprincipal, repositorio}, {op_type, self})
+        op_type_s = Atom.to_string(op_type)
+        receive do
+            {:reply, content} -> IO.puts(op_type_s)
+                                 IO.puts(content)
+        end
+        
+        cs_state = :out
+        # Actualizar datos en subproceso encargado de recibir request
+        send(rr_pid, {:update, cs_state})
+        # Enviar permission al resto de procesos bloqueados
+        send(rr_pid, {:need_perm_delayed, self})
+        receive do
+            {:perm_delayed, perm_delayed} -> enviar_permission(proc_id, rp_list, perm_delayed)
+        end
+        send(rr_pid, {:reset_perm_delayed})
+        send(rr_pid, {:need_clock, self})
+        receive do
+            {:clock, new_clock} -> clock = new_clock 
+        end
+        
+        # Esperar un tiempo y realizar otra petición
+        Process.sleep(5000)
+        protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state)
+    end
+
+    # Comprobar el orden total de dos eventos
+    def comprobar_orden_total(proc_id, lrd, proc_id_r, lrd_r) do
+        cond do
+            lrd < lrd_r -> true
+            (lrd == lrd_r) and (proc_id < proc_id_r) -> true
+            true -> false
+        end
+    end 
+
+    # Comprobar la exclusión de dos operaciones
+    def exclude(op_type, op_type_r) do
         # TODO
+    end
+
+    # Obtener el pid del subproceso encargado de recibir permission del proceso principal indicado
+    def obtener_rppid(proc_id_r, rp_list) do
+        # TODO
+    end
+
+    # Gestionar request
+    def request(proc_id, lrd, clock, cs_state, perm_delayed, op_type, rp_list) do
+        receive do
+            {:update, cs_state_u, lrd_u, op_type_u} -> cs_state = cs_state_u
+                                                       lrd = lrd_u
+                                                       op_type = op_type_u
+            {:update, cs_state_u} -> cs_state = cs_state_u
+            {:update, rp_list_u} -> rp_list = rp_list_u
+            {:need_perm_delayed, pp_pid} -> send(pp_pid, {:perm_delayed, perm_delayed})
+            {:reset_perm_delayed} -> perm_delayed = []
+            {:need_clock, pp_pid} -> send(pp_pid, {:clock, clock})
+            {:request, lrd_r, proc_id_r, op_type_r} -> clock = max(clock,lrd_r)
+                                                       prio = (cs_state != :out) and comprobar_orden_total(proc_id,lrd,proc_id_r,lrd_r) and exclude(op_type,op_type_r)
+                                                       if prio == true do
+                                                            n_perm_delayed = perm_delayed ++ proc_id_r
+                                                       else
+                                                            proc_env = obtener_rppid(proc_id_r, rp_list)
+                                                            send(proc_env, {:ack, proc_id})
+                                                       end
+        end
+        
     end  
 
     def permission(waiting_from, waiting_from_permanent) do
