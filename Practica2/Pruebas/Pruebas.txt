@@ -1,0 +1,10 @@
+Bateria de pruebas
+	- Nº Alumnos: 1, Nº Profesores 1
+	  Descripción: ambos empiezan a la vez, asignarle al profesor menor identificador que al alumno para que este tenga
+	 	       prioridad y comprobar que accede primero al repositorio.
+	- Nº Alumnos: 3, Nº Profesores 3
+	  Descripción: añadir mensajes de depuración para ver cuando los procesos se quedan bloqueados por mayor prioridad
+		       de otro.
+	- Nº Alumnos: 5, Nº Profesores 5
+	  Descripción: añadir mensajes de depuración para ver cuando los procesos se quedan bloqueados por mayor prioridad
+		       de otro.

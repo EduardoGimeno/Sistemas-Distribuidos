@@ -1,0 +1,12 @@
+iex --name repositorio@IP --cookie sd
+iex --name alumnoX@IP --cookie sd
+iex --name profesorX@IP --cookie sd
+
+Process.register(self, :pprincipal) (R)
+Process.register(self, :pprincipal) (A)
+Process.register(self, :pprincipal) (P)
+Node.connect(:"repositorio@IP") (A)
+Node.connect(:"repositorio@IP") (P)
+Repositorio.init (R)
+Lector.begin_protocol(Y,Z) (A)
+Escritor.begin_protocol(Y,Z) (P)
