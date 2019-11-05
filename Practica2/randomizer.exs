@@ -1,5 +1,5 @@
 # AUTORES: https://gist.github.com/ahmadshah
-# DESCRIPCIÓN: Biblioteca auxiliar que permite generar un string psuedoaleatorio
+# DESCRIPCIÓN: Biblioteca auxiliar que permite generar un string pseudoaleatorio
 
 defmodule Randomizer do
   @moduledoc """

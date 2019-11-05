@@ -2,9 +2,9 @@
 # NIAs: 721615 y 740241
 # FICHERO: alumno_lector.exs
 # FECHA: 2 de noviembre de 2019
-# TIEMPO: 
+# TIEMPO: 15 min
 # DESCRIPCION: Código del escritor
-defmodule Lector do
+defmodule Escritor do
 
 ########################################################################################################
 #                                                                                                      #
@@ -29,6 +29,8 @@ defmodule Lector do
                 {:pid, pid, proc_id} -> nlist = list ++ [[proc_id, pid]]
                                         recibir(num_msg-1, nlist)
             end
+        else
+            list
         end
     end
             
@@ -45,26 +47,24 @@ defmodule Lector do
         
         IO.puts("SPAWN REQUEST Y PERMISSION")
         # Crear subprocesos encargados de recibir request y permission
-        rr_pid = spawn(Lector, :request, [proc_id, lrd, clock, cs_state, [], :nil, []])
-        rp_pid = spawn(Lector, :permission, [waiting_from, waiting_from, self])
+        rr_pid = spawn(Escritor, :request, [proc_id, lrd, clock, cs_state, [], :nil, [], true])
+        rp_pid = spawn(Escritor, :permission, [waiting_from, waiting_from, self])
 
         # Enviar al resto de procesos princiaples los pids de los subprocesos encargados de recibir request y permission y recibir sus análogos
         filtered_list = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "alumno" || Atom.to_string(x) =~ "profesor" end)
-        IO.inspect(filtered_list)
         num_msg = length(filtered_list)
         enviar(filtered_list, rr_pid, proc_id)
         rr_list = recibir(num_msg, [])
 
         filtered_list = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "alumno" || Atom.to_string(x) =~ "profesor" end)
-        IO.inspect(filtered_list)
         num_msg = length(filtered_list)
         enviar(filtered_list, rp_pid, proc_id)
         rp_list = recibir(num_msg,[])
-        send(rp_pid, {:update, rp_list})
+        send(rr_pid, {:update, rp_list})
         
         IO.puts("RECIBIDOS Y ENVIADOS PID")
         # Dar aleatoriedad
-        # Process.sleep(round(:rand.uniform(100)/100 * 2000))
+        Process.sleep(round(:rand.uniform(100)/100 * 2000))
         # Comenzar
         protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state)
     end
@@ -105,7 +105,6 @@ defmodule Lector do
         if (length(perm_delayed) != 0) do
             send_p = List.first(perm_delayed)
             rppid = obtener_rppid(send_p, rp_list)
-            IO.puts(rppid)
             enviar_permission(proc_id, rp_list, List.delete_at(perm_delayed, 0))
         end
     end
@@ -142,7 +141,6 @@ defmodule Lector do
     #                                       FUNCIÓN PRINCIPAL                                              #
     ########################################################################################################
     def protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state) do
-    
         IO.puts("INICIO DEL PROTOCOLO")
         cs_state = :trying
         lrd = clock + 1
@@ -159,7 +157,7 @@ defmodule Lector do
         
         IO.puts("SECCION CRITICA")
         # Pedir al repositorio los datos y mostrarlos por pantalla
-        repositorio = Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "repositorio" end)
+        repositorio = hd(Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "repositorio" end))
         description = Randomizer.randomizer(20, :alpha)
         send({:pprincipal, repositorio}, {op_type, self, description})
         op_type_s = Atom.to_string(op_type)
@@ -184,34 +182,45 @@ defmodule Lector do
         
         IO.puts("FUERA SECCION CRITICA")
         # Dar aleatoriedad
-        # Process.sleep(round(:rand.uniform(100)/100 * 2000))
+        Process.sleep(round(:rand.uniform(100)/100 * 2000))
         protocol(clock, lrd, proc_id, rr_pid, rr_list, rp_pid, rp_list, cs_state)
     end
 
     ########################################################################################################
     #                                    FUNCIÓN SUBPROCESO REQUEST                                        #
     ########################################################################################################
-    def request(proc_id, lrd, clock, cs_state, perm_delayed, op_type, rp_list) do
-        receive do
-            {:update, cs_state_u, lrd_u, op_type_u} -> cs_state = cs_state_u
-                                                       lrd = lrd_u
-                                                       op_type = op_type_u
-            {:update, cs_state_u} -> cs_state = cs_state_u
-            {:update, rp_list_u} -> rp_list = rp_list_u
-            {:need_perm_delayed, pp_pid} -> send(pp_pid, {:perm_delayed, perm_delayed})
-            {:reset_perm_delayed} -> perm_delayed = []
-            {:need_clock, pp_pid} -> send(pp_pid, {:clock, clock})
-            {:request, lrd_r, proc_id_r, op_type_r} -> clock = max(clock,lrd_r)
-                                                       prio = (cs_state != :out) and comprobar_orden_total(proc_id,lrd,proc_id_r,lrd_r) and exclude(op_type,op_type_r)
-                                                       if prio == true do
-                                                            n_perm_delayed = perm_delayed ++ proc_id_r
-                                                       else
-                                                            proc_env = obtener_rppid(proc_id_r, rp_list)
-                                                            send(proc_env, {:ack, proc_id})
-                                                       end
+    def request(proc_id, lrd, clock, cs_state, perm_delayed, op_type, rp_list, first_it) do
+        if (first_it == true) do
+            receive do
+                {:update, rp_list_u} -> rp_list_n = rp_list_u
+                                        request(proc_id, lrd, clock, cs_state, perm_delayed, op_type, rp_list_n, false)
+            end
+        else
+            receive do
+                {:update, cs_state_u, lrd_u, op_type_u} -> cs_state_n = cs_state_u
+                                                           lrd_n = lrd_u
+                                                           op_type_n = op_type_u
+                                                           request(proc_id, lrd_n, clock, cs_state_n, perm_delayed, op_type_n, rp_list, false)
+                {:update, cs_state_u} -> cs_state_n = cs_state_u
+                                         request(proc_id, lrd, clock, cs_state_n, perm_delayed, op_type, rp_list, false)
+                {:need_perm_delayed, pp_pid} -> send(pp_pid, {:perm_delayed, perm_delayed})
+                                                request(proc_id, lrd, clock, cs_state, perm_delayed, op_type, rp_list, false)
+                {:reset_perm_delayed} -> request(proc_id, lrd, clock, cs_state, [], op_type, rp_list, false)
+                {:need_clock, pp_pid} -> send(pp_pid, {:clock, clock})
+                                         request(proc_id, lrd, clock, cs_state, perm_delayed, op_type, rp_list, false)
+                {:request, lrd_r, proc_id_r, op_type_r} -> clock_n = max(clock,lrd_r)
+                                                           prio = (cs_state != :out) and comprobar_orden_total(proc_id,lrd,proc_id_r,lrd_r) and exclude(op_type,op_type_r)
+                                                           if prio == true do
+                                                                n_perm_delayed = perm_delayed ++ [proc_id_r]
+                                                                request(proc_id, lrd, clock_n, cs_state, n_perm_delayed, op_type, rp_list, false)
+                                                           else
+                                                                proc_env = obtener_rppid(proc_id_r, rp_list)
+                                                                send(proc_env, {:ack, proc_id})
+                                                                request(proc_id, lrd, clock_n, cs_state, perm_delayed, op_type, rp_list, false)
+                                                           end
+            end
         end
-        
-    end  
+    end
 
     ########################################################################################################
     #                                    FUNCIÓN SUBPROCESO PERMISSION                                     #
