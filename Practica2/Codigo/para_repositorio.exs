@@ -4,7 +4,7 @@
 # FECHA: 2 de noviembre de 2019
 # TIEMPO: 3 horas
 # DESCRIPCION: Código del lector
-defmodule Lector do
+defmodule Actor do
 
     ########################################################################################################
     #                                                                                                      #
@@ -13,7 +13,7 @@ defmodule Lector do
     ########################################################################################################
             
     # Cada proceso principal debe conocer los subprocesos encargados de las request y los permissions de los demás
-    def begin_protocol(proc_id, total_sistema) do
+    def begin_protocol(proc_id, total_sistema, rol) do
         IO.puts("START")
         # Inicializar variables que deben conocer desde un inicio los subprocesos encargados de recibir request y permission
         clock = 0
@@ -44,7 +44,7 @@ defmodule Lector do
         # Dar aleatoriedad
         Process.sleep(round(:rand.uniform(100)/100 * 2000))
         # Comenzar
-        protocol(clock, proc_id, rr_pid, rr_list, rp_pid, rp_list)
+        protocol(clock, proc_id, rr_pid, rr_list, rp_pid, rp_list, rol)
     end
 
     ########################################################################################################
@@ -56,11 +56,12 @@ defmodule Lector do
     ########################################################################################################
     #                                       FUNCIÓN PRINCIPAL                                              #
     ########################################################################################################
-    def protocol(clock, proc_id, rr_pid, rr_list, rp_pid, rp_list) do
+    def protocol(clock, proc_id, rr_pid, rr_list, rp_pid, rp_list, rol) do
         IO.puts("INICIO DEL PROTOCOLO")
         cs_state = :trying
         lrd = clock + 1
-        op_type = Common.generar_operacion_lector
+        op_type = Common.generar_operacion(rol)
+    
         # Actualizar datos en subproceso encargado de recibir request
         send(rr_pid, {:update, cs_state, lrd, op_type})
         # Enviar peticiones de acceso al resto
@@ -74,11 +75,21 @@ defmodule Lector do
         IO.puts("SECCION CRITICA")
         # Pedir al repositorio los datos y mostrarlos por pantalla
         repositorio = hd(Enum.filter(Node.list, fn(x) -> Atom.to_string(x) =~ "repositorio" end))
-        send({:pprincipal, repositorio}, {op_type, self})
-        op_type_s = Atom.to_string(op_type)
-        receive do
-            {:reply, content} -> IO.puts(op_type_s)
-                                 IO.puts(content)
+        if (rol == "lector") do
+            send({:pprincipal, repositorio}, {op_type, self})
+            op_type_s = Atom.to_string(op_type)
+            receive do
+                {:reply, content} -> IO.puts(op_type_s)
+                                     IO.puts(content)
+            end
+        else
+            description = Randomizer.randomizer(20, :alpha)
+            send({:pprincipal, repositorio}, {op_type, self, description})
+            op_type_s = Atom.to_string(op_type)
+            receive do
+                {:reply, :ok} -> IO.puts(op_type_s)
+                                 IO.puts(description)
+            end
         end
         
         cs_state = :out
@@ -99,6 +110,6 @@ defmodule Lector do
         IO.puts("FUERA SECCION CRITICA")
         # Dar aleatoriedad
         Process.sleep(round(:rand.uniform(100)/100 * 2000))
-        protocol(clock_n, proc_id, rr_pid, rr_list, rp_pid, rp_list)
+        protocol(clock_n, proc_id, rr_pid, rr_list, rp_pid, rp_list,rol)
     end
 end

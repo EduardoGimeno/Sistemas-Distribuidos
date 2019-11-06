@@ -50,6 +50,15 @@ defmodule Common do
         end
     end
 
+    # Invocar a la operación de cada rol
+    def generar_operacion(rol) do
+        if (rol == "lector") do
+            generar_operacion_lector
+        else
+            generar_operacion_escritor
+        end
+    end
+
     # Genera una operación aleatoria para el lector
     def generar_operacion_lector do
         random_op = :rand.uniform(3)
