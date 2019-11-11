@@ -120,8 +120,7 @@ defmodule Actor do
         end
         
         # Sección Crítica
-        sc_title = "-- Sección Crítica (" <> to_string(lrd) <> ") --"
-        IO.puts(sc_title)
+        IO.puts("-- Sección Crítica --")
         if (rol == "lector") do
             send({:server,repository}, {op_type, self})
             op_type_s = Atom.to_string(op_type)
@@ -218,7 +217,8 @@ defmodule Actor do
     # Proceso receptor request
     def request_receiver(pidmutex, pidsd, id) do
         receive do
-            {:request, k, j, op_type_r, node_r} -> spawn(fn ->	send(pidmutex, {self, :wait})
+            {:request, k, j, op_type_r, node_r} -> spawn(fn ->
+                                                        send(pidmutex, {self, :wait})
                                                         receive do
                                                             {:ok} ->
                                                                 send(pidsd, {:read, :clock, self})
@@ -231,7 +231,7 @@ defmodule Actor do
                                                                                             receive do
                                                                                                 {:op_lrd, op_type, lrd} -> 
                                                                                                                         priority = (cs_state != :out ) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
-                                                                                                                        if priority
+                                                                                                                        if priority do
                                                                                                                             send(pidsd, {:read, :perm_delayed, self})
                                                                                                                             receive do
                                                                                                                                 {:perm_delayed, perm_delayed} -> send(pidsd, {:write, :perm_delayed, perm_delayed ++ [node_r]})
@@ -242,6 +242,7 @@ defmodule Actor do
                                                                                             end
                                                                 end
                                                                 send(pidmutex, {self, :wait})
+                                                        end
                                                         end
                                                         )
         end
@@ -261,7 +262,7 @@ defmodule Actor do
     # Proceso receptor permission
     def permission_receiver(pidmutex, pidsd, pidprincipal, id) do
         receive do
-            {:grant_permission, j} -> spawn(fn -> 
+            {:grant_permission, j} -> spawn(fn ->
                                                 send(pidmutex, {self, :wait})
                                                 receive do
                                                     {:ok} ->
@@ -269,13 +270,15 @@ defmodule Actor do
                                                         receive do
                                                             {:waiting_from, waiting_from} ->    waiting_from = List.update_at(waiting_from,j-1,&(&1 = true))
                                                                                                 send(pidsd, {:write, :waiting_from, waiting_from})
-                                                        end
-                                                        all_done = for n <- 1..n, do: true
-                                                        if (waiting_from == all_done)
-                                                            send(pidprincipal,{:permission_ok})
+                                                                                                n = length(waiting_from)
+                                                                                                all_done = for n <- 1..n, do: true
+                                                                                                if (waiting_from == all_done) do
+                                                                                                    send(pidprincipal,{:permission_ok})
+                                                                                                end
                                                         end
                                                         send(pidmutex, {self, :signal})
                                                 end
+                                             end
                                             )
             
         end
