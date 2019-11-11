@@ -14,12 +14,12 @@ defmodule Actor do
     
     def protocol(rol, pidmutex, pidsd, id, n, actors, repository) do
         # Pre Protocol
-        IO.Puts("-- Pre Protocol --")
+        IO.puts("-- Pre Protocol --")
         send(pidmutex, {:wait, self})
         receive do
             {:ok} ->
                 send(pidsd, {:write, :cs_state, :trying})
-                send(pidsd, {:read, :clock)
+                send(pidsd, {:read, :clock})
                 receive do
                     {:clock, clock} -> send(pidsd, {:write, :lrd, clock+1})
                 end
@@ -31,7 +31,7 @@ defmodule Actor do
                     op_type = generar_operacion_escritor
                 end
                 send(pidsd, {:write, :op_type, op_type})
-                send(pidsd, {:read, :lrd)
+                send(pidsd, {:read, :lrd})
                 receive do
                     {:lrd, lrd} ->  Enum.each actors, fn actor ->
                                         send({:request_process,actor},{:request, lrd, id, op_type, node()})
@@ -48,13 +48,14 @@ defmodule Actor do
         end
         
         # Sección Crítica
-        IO.Puts("-- Sección Crítica (" <> to_string(lrd) <> ") --")
+        sc_title = "-- Sección Crítica (" <> to_string(lrd) <> ") --"
+        IO.puts(sc_title)
         if (rol == "lector") do
-            send({::server,repository}, {op_type, self})
+            send({:server,repository}, {op_type, self})
             op_type_s = Atom.to_string(op_type)
             receive do
                 {:reply, content} -> IO.puts(op_type_s)
-                                    IO.puts(content)
+                                     IO.puts(content)
             end
         else
             content = "ESCRITURA " <> to_string(id)
@@ -62,16 +63,16 @@ defmodule Actor do
             op_type_s = Atom.to_string(op_type)
             receive do
                 {:reply, :ok} -> IO.puts(op_type_s)
-                                IO.puts(content)
+                                 IO.puts(content)
             end
         end
         
         # Post Protocol
-        IO.Puts("-- Post Protocol --")
+        IO.puts("-- Post Protocol --")
         send(pidmutex, {:wait, self})
         receive do
-            {:ok} -> send(pidsd, {:write, :cs_state, :out})
-                    send(pidsd, {:read, :perm_delayed)
+            {:ok} ->send(pidsd, {:write, :cs_state, :out})
+                    send(pidsd, {:read, :perm_delayed})
                     receive do
                         {:perm_delayed, perm_delayed} ->Enum.each perm_delayed, fn delayed ->
                                                             send({:permission_process,delayed},{:grant_permission, id})
