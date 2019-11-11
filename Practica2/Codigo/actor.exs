@@ -8,6 +8,78 @@ defmodule Actor do
 
     ########################################################################################################
     #                                                                                                      #
+    #                                       DATOS COMPARTIDOS                                              #
+    #                                                                                                      #
+    ########################################################################################################
+
+    # Mutex 
+    # counter = contador del mutex
+    # waiting = lista de bloqueados
+    def mutex(counter, waiting) do
+        receive do
+            {:wait, pid} -> if counter == 1 do
+                                send(pid, {:ok})
+                                mutex(0, [])
+                            else
+                                mutex(counter, [pid])
+                            end
+
+            {:signal, pid} -> if length(waiting) == 0 do
+                                mutex(1, waiting)
+                            else
+                                wake = hd(waiting)
+                                send(wake, {:ok})
+                                mutex(0, [])
+                            end
+        end
+    end
+    
+    # Datos compartidos entre los procesos de un grupo
+    # clock = reloj observado del resto de procesos
+    # lrd = reloj propio
+    # op_type = operación a ejecutar sobre el repositorio
+    # cs_state = estado de acceso a la sección crítica
+    # waiting_from = estado de la recepción del permission de cada proceso
+    # perm_delayed = lista de procesos a la espera
+    def shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed) do
+        receive do
+            {:read, :clock, pid} -> send(pid, {:clock, clock})
+                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+
+            {:read, :lrd, pid} ->   send(pid, {:lrd, lrd})
+                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+
+            {:read, :op_type, pid} ->   send(pid, {:op_type, op_type})
+                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+
+            {:read, :cs_state, pid} ->  send(pid, {:cs_state, cs_state})
+                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+
+            {:read, :waiting_from, pid} ->  send(pid, {:waiting_from, waiting_from})
+                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+
+            {:read, :perm_delayed, pid} ->  send(pid, {:perm_delayed, perm_delayed})
+                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                                
+            {:read, :op_lrd, pid} ->    send(pid, {:op_lrd, op_type, lrd})
+                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+
+            {:write, :clock, value} -> shared_data(value, lrd, op_type, cs_state, waiting_from, perm_delayed)
+
+            {:write, :lrd, value} -> shared_data(clock, value, op_type, cs_state, waiting_from, perm_delayed)
+
+            {:write, :op_type, value} -> shared_data(clock, lrd, value, cs_state, waiting_from, perm_delayed)
+            
+            {:write, :cs_state, value} -> shared_data(clock, lrd, op_type, value, waiting_from, perm_delayed)
+
+            {:write, :waiting_from, value} -> shared_data(clock, lrd, op_type, cs_state, value, perm_delayed)
+
+            {:write, :perm_delayed, value} -> shared_data(clock, lrd, op_type, cs_state, waiting_from, value)
+        end
+    end 
+    
+    ########################################################################################################
+    #                                                                                                      #
     #                                           PRINCIPAL                                                  #
     #                                                                                                      #
     ########################################################################################################
@@ -127,79 +199,6 @@ defmodule Actor do
             true -> true
         end
     end
-    
-
-    ########################################################################################################
-    #                                                                                                      #
-    #                                       DATOS COMPARTIDOS                                              #
-    #                                                                                                      #
-    ########################################################################################################
-
-    # Mutex 
-    # counter = contador del mutex
-    # waiting = lista de bloqueados
-    def mutex(counter, waiting) do
-        receive do
-            {:wait, pid} -> if counter == 1 do
-                                send(pid, {:ok})
-                                mutex(0, [])
-                            else
-                                mutex(counter, [pid])
-                            end
-
-            {:signal, pid} -> if length(waiting) == 0 do
-                                mutex(1, waiting)
-                            else
-                                wake = hd(waiting)
-                                send(wake, {:ok})
-                                mutex(0, [])
-                            end
-        end
-    end
-    
-    # Datos compartidos entre los procesos de un grupo
-    # clock = reloj observado del resto de procesos
-    # lrd = reloj propio
-    # op_type = operación a ejecutar sobre el repositorio
-    # cs_state = estado de acceso a la sección crítica
-    # waiting_from = estado de la recepción del permission de cada proceso
-    # perm_delayed = lista de procesos a la espera
-    def shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed) do
-        receive do
-            {:read, :clock, pid} -> send(pid, {:clock, clock})
-                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
-
-            {:read, :lrd, pid} ->   send(pid, {:lrd, lrd})
-                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
-
-            {:read, :op_type, pid} ->   send(pid, {:op_type, op_type})
-                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
-
-            {:read, :cs_state, pid} ->  send(pid, {:cs_state, cs_state})
-                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
-
-            {:read, :waiting_from, pid} ->  send(pid, {:waiting_from, waiting_from})
-                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
-
-            {:read, :perm_delayed, pid} ->  send(pid, {:perm_delayed, perm_delayed})
-                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
-                                                
-            {:read, :op_lrd, pid} ->    send(pid, {:op_lrd, op_type, lrd})
-                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
-
-            {:write, :clock, value} -> shared_data(value, lrd, op_type, cs_state, waiting_from, perm_delayed)
-
-            {:write, :lrd, value} -> shared_data(clock, value, op_type, cs_state, waiting_from, perm_delayed)
-
-            {:write, :op_type, value} -> shared_data(clock, lrd, value, cs_state, waiting_from, perm_delayed)
-            
-            {:write, :cs_state, value} -> shared_data(clock, lrd, op_type, value, waiting_from, perm_delayed)
-
-            {:write, :waiting_from, value} -> shared_data(clock, lrd, op_type, cs_state, value, perm_delayed)
-
-            {:write, :perm_delayed, value} -> shared_data(clock, lrd, op_type, cs_state, waiting_from, value)
-        end
-    end 
 
     ########################################################################################################
     #                                                                                                      #
@@ -266,7 +265,7 @@ defmodule Actor do
                                                 send(pidmutex, {self, :wait})
                                                 receive do
                                                     {:ok} ->
-                                                        send(pidsd, {:read, :waiting_from)
+                                                        send(pidsd, {:read, :waiting_from})
                                                         receive do
                                                             {:waiting_from, waiting_from} ->    waiting_from = List.update_at(waiting_from,j-1,&(&1 = true))
                                                                                                 send(pidsd, {:write, :waiting_from, waiting_from})
@@ -289,6 +288,7 @@ defmodule Actor do
     ########################################################################################################
 
     # Inicialización del sistema
+    # rol = escritor o lector
     # id = identificador del grupo de procesos
     # system_nodes = nodos del sistema
     def init(rol, id, system_nodes) do
@@ -300,7 +300,7 @@ defmodule Actor do
         n = length(actors)
         waiting_from = for n <- 1..n, do: false
         # Inicializar proceso de datos compartidos
-        # clock, lrd, op_type, cs_state, waiting_from, permissions_received
+        # clock, lrd, op_type, cs_state, waiting_from, perm_delayed
         pidsd = spawn(Actor, :shared_data, [0, 0, :nil, :out, waiting_from, []])
 
         # Inicializar proceso mutex
