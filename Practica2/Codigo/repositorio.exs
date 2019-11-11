@@ -9,6 +9,7 @@
  
 defmodule Repositorio do
 	def init do
+        Process.register(self,:server)
 		repo_server({"", "", ""})
 	end
 	defp repo_server({resumen, principal, entrega}) do
@@ -22,4 +23,4 @@ defmodule Repositorio do
 		end
 		repo_server({n_resumen, n_principal, n_entrega})
 	end
-end
+endpara_repositorio
