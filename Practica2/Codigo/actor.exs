@@ -225,7 +225,7 @@ defmodule Actor do
                                                                 receive do
                                                                     {:clock, clock} -> send(pidsd, {:write, :clock, max(clock,k)})
                                                                 end
-                                                                send(pidsd, {:read, :cs:state, self})
+                                                                send(pidsd, {:read, :cs_state, self})
                                                                 receive do
                                                                     {:cs_state, cs_state} -> send(pidsd, {:read, :op_lrd, self})
                                                                                             receive do
