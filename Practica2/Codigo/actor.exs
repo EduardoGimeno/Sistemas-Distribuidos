@@ -41,40 +41,46 @@ defmodule Actor do
     # cs_state = estado de acceso a la sección crítica
     # waiting_from = estado de la recepción del permission de cada proceso
     # perm_delayed = lista de procesos a la espera
-    def shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed) do
+    def shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed, debug) do
         receive do
             {:read, :clock, pid} -> send(pid, {:clock, clock})
-                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed, debug)
 
             {:read, :lrd, pid} ->   send(pid, {:lrd, lrd})
-                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed, debug)
 
             {:read, :op_type, pid} ->   send(pid, {:op_type, op_type})
-                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed, debug)
 
             {:read, :cs_state, pid} ->  send(pid, {:cs_state, cs_state})
-                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed, debug)
 
             {:read, :waiting_from, pid} ->  send(pid, {:waiting_from, waiting_from})
-                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed, debug)
 
             {:read, :perm_delayed, pid} ->  send(pid, {:perm_delayed, perm_delayed})
-                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed, debug)
                                                 
             {:read, :op_lrd, pid} ->    send(pid, {:op_lrd, op_type, lrd})
-                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                        shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed, debug)
 
-            {:write, :clock, value} -> shared_data(value, lrd, op_type, cs_state, waiting_from, perm_delayed)
+            {:write, :clock, value} ->  if (debug) do IO.puts("CLOCK: " <> to_string(value)) end
+                                        shared_data(value, lrd, op_type, cs_state, waiting_from, perm_delayed, debug)
 
-            {:write, :lrd, value} -> shared_data(clock, value, op_type, cs_state, waiting_from, perm_delayed)
+            {:write, :lrd, value} ->    if (debug) do IO.puts("LRD: " <> to_string(value)) end
+                                        shared_data(clock, value, op_type, cs_state, waiting_from, perm_delayed, debug)
 
-            {:write, :op_type, value} -> shared_data(clock, lrd, value, cs_state, waiting_from, perm_delayed)
+            {:write, :op_type, value} ->    if (debug) do IO.puts("OP_TYPE: " <> Atom.to_string(value)) end
+                                            shared_data(clock, lrd, value, cs_state, waiting_from, perm_delayed, debug)
             
-            {:write, :cs_state, value} -> shared_data(clock, lrd, op_type, value, waiting_from, perm_delayed)
+            {:write, :cs_state, value} ->   if (debug) do IO.puts("CS_STATE: " <> Atom.to_string(value)) end
+                                            shared_data(clock, lrd, op_type, value, waiting_from, perm_delayed, debug)
 
-            {:write, :waiting_from, value} -> shared_data(clock, lrd, op_type, cs_state, value, perm_delayed)
+            {:write, :waiting_from, value} ->   if (debug) do IO.puts("WAITING_FROM:"); IO.inspect(value) end
+                                                shared_data(clock, lrd, op_type, cs_state, value, perm_delayed, debug)
 
-            {:write, :perm_delayed, value} -> shared_data(clock, lrd, op_type, cs_state, waiting_from, value)
+            {:write, :perm_delayed, value} ->   if (debug) do IO.puts("PERM_DELAYED:"); IO.inspect(value) end
+                                                shared_data(clock, lrd, op_type, cs_state, waiting_from, value, debug)
         end
     end 
     
@@ -85,6 +91,7 @@ defmodule Actor do
     ########################################################################################################
     
     def protocol(rol, pidmutex, pidsd, id, n, actors, repository) do
+        
         # Pre Protocol
         IO.puts("-- Pre Protocol --")
         op_type = generar_operacion(rol)
@@ -92,17 +99,18 @@ defmodule Actor do
         receive do
             {:ok} ->
                 send(pidsd, {:write, :cs_state, :trying})
-                send(pidsd, {:read, :clock})
+                send(pidsd, {:read, :clock, self})
                 receive do
                     {:clock, clock} -> send(pidsd, {:write, :lrd, clock+1})
                 end
-                waiting_from = for n <- 1..n, do: false
+                waiting_from = for n <- 1..(n+1), do: false
                 send(pidsd, {:write, :waiting_from, List.update_at(waiting_from,id-1,&(&1 = true))})
                 send(pidsd, {:write, :op_type, op_type})
-                send(pidsd, {:read, :lrd})
+                send(pidsd, {:read, :lrd, self})
                 receive do
                     {:lrd, lrd} ->  Enum.each actors, fn actor ->
                                         send({:request_process,actor},{:request, lrd, id, op_type, node()})
+                                        IO.puts("Enviada request a " <> to_string(actor))
                                     end
                 end
                 send(pidmutex, {:signal, self})
@@ -139,16 +147,18 @@ defmodule Actor do
         send(pidmutex, {:wait, self})
         receive do
             {:ok} ->send(pidsd, {:write, :cs_state, :out})
-                    send(pidsd, {:read, :perm_delayed})
+                    send(pidsd, {:read, :perm_delayed, self})
                     receive do
                         {:perm_delayed, perm_delayed} ->Enum.each perm_delayed, fn delayed ->
                                                             send({:permission_process,delayed},{:grant_permission, id})
+                                                            IO.puts("Enviado permission a " <> to_string(delayed))
                                                         end
                                                         send(pidsd, {:write, :perm_delayed, []})
                     end
                     send(pidmutex, {:signal, self})
         end
         
+        Process.sleep(round(:rand.uniform(100)/100 * 2000))
         protocol(rol,pidmutex,pidsd,id,n,actors,repository)
     end
 
@@ -223,35 +233,40 @@ defmodule Actor do
     def request_receiver(pidmutex, pidsd, id) do
         receive do
             {:request, k, j, op_type_r, node_r} -> spawn(fn ->
-                                                        send(pidmutex, {self, :wait})
-                                                        receive do
-                                                            {:ok} ->
-                                                                send(pidsd, {:read, :clock, self})
-                                                                receive do
-                                                                    {:clock, clock} -> send(pidsd, {:write, :clock, max(clock,k)})
-                                                                end
-                                                                send(pidsd, {:read, :cs_state, self})
-                                                                receive do
-                                                                    {:cs_state, cs_state} -> send(pidsd, {:read, :op_lrd, self})
-                                                                                            receive do
-                                                                                                {:op_lrd, op_type, lrd} -> 
-                                                                                                                        priority = (cs_state != :out ) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
-                                                                                                                        if priority do
-                                                                                                                            send(pidsd, {:read, :perm_delayed, self})
-                                                                                                                            receive do
-                                                                                                                                {:perm_delayed, perm_delayed} -> send(pidsd, {:write, :perm_delayed, perm_delayed ++ [node_r]})
-                                                                                                                            end
-                                                                                                                        else
-                                                                                                                            send({:permission_process,node_r},{:grant_permission,j})
-                                                                                                                        end
-                                                                                            end
-                                                                end
-                                                                send(pidmutex, {self, :wait})
-                                                        end
+                                                            send(pidmutex, {:wait, self})
+                                                            receive do
+                                                                    {:ok} ->
+                                                                        IO.puts("Recibida request " <> to_string(j))
+                                                                        send(pidsd, {:read, :clock, self})
+                                                                        receive do
+                                                                            {:clock, clock} ->
+                                                                                send(pidsd, {:write, :clock, max(clock,k)})
+                                                                                send(pidsd, {:read, :cs_state, self})
+                                                                                receive do
+                                                                                    {:cs_state, cs_state} ->
+                                                                                        send(pidsd, {:read, :op_lrd, self})
+                                                                                        receive do
+                                                                                            {:op_lrd, op_type, lrd} -> 
+                                                                                                priority = (cs_state != :out ) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
+                                                                                                if priority do
+                                                                                                    send(pidsd, {:read, :perm_delayed, self})
+                                                                                                    receive do
+                                                                                                        {:perm_delayed, perm_delayed} ->
+                                                                                                            send(pidsd, {:write, :perm_delayed, perm_delayed ++ [node_r]})
+                                                                                                    end
+                                                                                                else
+                                                                                                    send({:permission_process,node_r},{:grant_permission,id})
+                                                                                                    IO.puts("Enviado permission a " <> to_string(node_r))
+                                                                                                end
+                                                                                        end
+                                                                                end
+                                                                        end
+                                                                        send(pidmutex, {:signal, self})
+                                                            end
                                                         end
                                                         )
+                                                        request_receiver(pidmutex, pidsd, id)
         end
-        
     end
     
     # Registro proceso receptor permission
@@ -268,24 +283,26 @@ defmodule Actor do
     def permission_receiver(pidmutex, pidsd, pidprincipal, id) do
         receive do
             {:grant_permission, j} -> spawn(fn ->
-                                                send(pidmutex, {self, :wait})
+                                                send(pidmutex, {:wait, self})
                                                 receive do
                                                     {:ok} ->
-                                                        send(pidsd, {:read, :waiting_from})
+                                                        IO.puts("Recibido permission " <> to_string(j))
+                                                        send(pidsd, {:read, :waiting_from, self})
                                                         receive do
-                                                            {:waiting_from, waiting_from} ->    waiting_from = List.update_at(waiting_from,j-1,&(&1 = true))
-                                                                                                send(pidsd, {:write, :waiting_from, waiting_from})
-                                                                                                n = length(waiting_from)
-                                                                                                all_done = for n <- 1..n, do: true
-                                                                                                if (waiting_from == all_done) do
-                                                                                                    send(pidprincipal,{:permission_ok})
-                                                                                                end
+                                                            {:waiting_from, waiting_from} ->
+                                                                waiting_from = List.update_at(waiting_from,j-1,&(&1 = true))
+                                                                send(pidsd, {:write, :waiting_from, waiting_from})
+                                                                n = length(waiting_from)
+                                                                all_done = for n <- 1..(n+1), do: true
+                                                                if (waiting_from == all_done) do
+                                                                    send(pidprincipal,{:permission_ok})
+                                                                end
                                                         end
-                                                        send(pidmutex, {self, :signal})
+                                                        send(pidmutex, {:signal, self})
                                                 end
                                              end
                                             )
-            
+                                            permission_receiver(pidmutex, pidsd, pidprincipal, id)
         end
     end
 
@@ -298,18 +315,18 @@ defmodule Actor do
     # Inicialización del sistema
     # rol = escritor o lector
     # id = identificador del grupo de procesos
-    # system_nodes = nodos del sistema
-    def init(rol, id, system_nodes) do
+    def init(rol, id) do
+        system_nodes = Node.list
         # Obtener lectores y escritores
         actors = Enum.filter(system_nodes, fn(x) -> Atom.to_string(x) =~ "alumno" || Atom.to_string(x) =~ "profesor" end)
         # Obtener repositorio
         repository = Enum.filter(system_nodes, fn(x) -> Atom.to_string(x) =~ "repositorio" end)
 
         n = length(actors)
-        waiting_from = for n <- 1..n, do: false
+        waiting_from = for n <- 1..(n+1), do: false
         # Inicializar proceso de datos compartidos
         # clock, lrd, op_type, cs_state, waiting_from, perm_delayed
-        pidsd = spawn(Actor, :shared_data, [0, 0, :nil, :out, waiting_from, []])
+        pidsd = spawn(Actor, :shared_data, [0, 0, :nil, :out, waiting_from, [], true])
 
         # Inicializar proceso mutex
         pidmutex = spawn(Actor, :mutex, [1, []])
@@ -322,6 +339,9 @@ defmodule Actor do
         # Inicializar proceso receptor permission
         pidpermission = spawn(Actor, :permission_receiver_init, [pidmutex, pidsd, pidprincipal, id])
 
+        IO.puts("Empezando en 5 segundos...")
+        Process.sleep(5000)
+        
         # Inicio del protocolo
         protocol(rol, pidmutex, pidsd, id, n, actors, repository)
     end 
