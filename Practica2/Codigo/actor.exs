@@ -87,6 +87,7 @@ defmodule Actor do
     def protocol(rol, pidmutex, pidsd, id, n, actors, repository) do
         # Pre Protocol
         IO.puts("-- Pre Protocol --")
+        op_type = generar_operacion(rol)
         send(pidmutex, {:wait, self})
         receive do
             {:ok} ->
@@ -97,11 +98,6 @@ defmodule Actor do
                 end
                 waiting_from = for n <- 1..n, do: false
                 send(pidsd, {:write, :waiting_from, List.update_at(waiting_from,id-1,&(&1 = true))})
-                if (rol == "lector") do
-                    op_type = generar_operacion_lector
-                else
-                    op_type = generar_operacion_escritor
-                end
                 send(pidsd, {:write, :op_type, op_type})
                 send(pidsd, {:read, :lrd})
                 receive do
@@ -179,6 +175,15 @@ defmodule Actor do
             random_op == 1 -> :update_resumen
             random_op == 2 -> :update_principal
             random_op == 3 -> :update_entrega
+        end
+    end
+    
+    # Invocar a la operación de cada rol
+    def generar_operacion(rol) do
+        if (rol == "lector") do
+            generar_operacion_lector
+        else
+            generar_operacion_escritor
         end
     end
     
