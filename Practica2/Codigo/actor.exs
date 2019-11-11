@@ -122,7 +122,7 @@ defmodule Actor do
 	# Comprobar la exclusión de dos operaciones
     def exclude(op_type, op_type_r) do
         cond do
-            (Atom.to_string(op_type) =~ "read") and (Atom.to_string(op_type_r) =~ "write") -> false
+            (Atom.to_string(op_type) =~ "read") and (Atom.to_string(op_type_r) =~ "read") -> false
             true -> true
         end
     end
@@ -222,16 +222,16 @@ defmodule Actor do
 																receive do
 																	{:clock, clock} -> send(pidsd, {:write, :clock, max(clock,k)})
 																end
-																send(pidsd, {:read, :ldr, self})
+																send(pidsd, {:read, :lrd, self})
 																receive do
-																	{:ldr, ldr} -> ok
+																	{:lrd, lrd} -> ok
 																end
 																send(pidsd, {:read, :cs:state, self})
 																receive do
 																	{:cs_state, cs_state} -> send(pidsd, {:read, :op_type, self})
 																							 receive do
 																								{:op_type, op_type} ->	priority = (cs_state != :out ) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
-																														if !priority
+																														if priority
 																															send(pidsd, {:read, :perm_delayed, self})
 																															receive do
 																																{:perm_delayed, perm_delayed} -> send(pidsd, {:write, :perm_delayed, perm_delayed ++ [node_r]})
