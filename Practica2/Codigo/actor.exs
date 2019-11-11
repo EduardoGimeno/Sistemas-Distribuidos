@@ -231,10 +231,10 @@ defmodule Actor do
 																	{:cs_state, cs_state} -> send(pidsd, {:read, :op_type, self})
 																							 receive do
 																								{:op_type, op_type} ->	priority = (cs_state != :out ) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
-																														if priority
+																														if !priority
 																															send(pidsd, {:read, :perm_delayed, self})
 																															receive do
-																																{:perm_delayed, perm_delayed} -> send(pidsd, {:write, :perm_delayed, perm_delayed + [node_r]})
+																																{:perm_delayed, perm_delayed} -> send(pidsd, {:write, :perm_delayed, perm_delayed ++ [node_r]})
 																															end
 																														else
 																															send({:permission_process,node_r},{:grant_permission,j})
