@@ -180,7 +180,10 @@ defmodule Actor do
             {:read, :waiting_from, pid} -> send(pid, {:waiting_from, waiting_from})
                                            shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
 
-            {:read, :perm_delayed, pid} -> send(pid, {:permissions_received, permissions_received})
+            {:read, :perm_delayed, pid} -> send(pid, {:perm_delayed, perm_delayed})
+                                                   shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
+                                                   
+            {:read, :op_lrd, pid} -> send(pid, {:op_lrd, op_type, lrd})
                                                    shared_data(clock, lrd, op_type, cs_state, waiting_from, perm_delayed)
 
             {:write, :clock, value} -> shared_data(value, lrd, op_type, cs_state, waiting_from, perm_delayed)
@@ -222,15 +225,11 @@ defmodule Actor do
 																receive do
 																	{:clock, clock} -> send(pidsd, {:write, :clock, max(clock,k)})
 																end
-																send(pidsd, {:read, :lrd, self})
-																receive do
-																	{:lrd, lrd} -> ok
-																end
 																send(pidsd, {:read, :cs:state, self})
 																receive do
-																	{:cs_state, cs_state} -> send(pidsd, {:read, :op_type, self})
+																	{:cs_state, cs_state} -> send(pidsd, {:read, :op_lrd, self})
 																							 receive do
-																								{:op_type, op_type} ->	priority = (cs_state != :out ) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
+																								{:op_lrd, op_type, lrd} ->	priority = (cs_state != :out ) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
 																														if priority
 																															send(pidsd, {:read, :perm_delayed, self})
 																															receive do
