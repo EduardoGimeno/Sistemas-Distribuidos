@@ -23,10 +23,8 @@ defmodule Actor do
 				receive do
 					{:clock, clock} -> send(pidsd, {:write, :lrd, clock+1})
 				end
-				send(pidsd, {:read, :waiting_from)
-				receive do
-					{:waiting_from, waiting_from} -> send(pidsd, {:write, :waiting_from, List.update_at(waiting_from,id-1,&(&1 = true))})
-				end
+				waiting_from = for n <- 1..n, do: false
+                send(pidsd, {:write, :waiting_from, List.update_at(waiting_from,id-1,&(&1 = true))})
 				if (rol == "lector") do
 					op_type = generar_operacion_lector
 				else
