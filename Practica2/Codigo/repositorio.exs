@@ -23,4 +23,4 @@ defmodule Repositorio do
 		end
 		repo_server({n_resumen, n_principal, n_entrega})
 	end
-endpara_repositorio
+end
