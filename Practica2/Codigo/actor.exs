@@ -95,6 +95,7 @@ defmodule Actor do
         # Pre Protocol
         IO.puts("-- Pre Protocol --")
         op_type = generar_operacion(rol)
+        op_type_s = Atom.to_string(op_type)
         send(pidmutex, {:wait, self})
         receive do
             {:ok} ->
@@ -127,7 +128,6 @@ defmodule Actor do
         IO.puts("-- Sección Crítica --")
         if (rol == "lector") do
             send({:server,repository}, {op_type, self})
-            op_type_s = Atom.to_string(op_type)
             receive do
                 {:reply, content} -> IO.puts(op_type_s)
                                      IO.puts(content)
@@ -135,7 +135,6 @@ defmodule Actor do
         else
             content = "ESCRITURA " <> to_string(id)
             send({:server,repository}, {op_type, self, content})
-            op_type_s = Atom.to_string(op_type)
             receive do
                 {:reply, :ok} -> IO.puts(op_type_s)
                                  IO.puts(content)
@@ -247,7 +246,7 @@ defmodule Actor do
                                                                                         send(pidsd, {:read, :op_lrd, self})
                                                                                         receive do
                                                                                             {:op_lrd, op_type, lrd} -> 
-                                                                                                priority = (cs_state != :out ) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
+                                                                                                priority = (cs_state != :out) && comprobar_orden_total(id, lrd, j, k) && exclude(op_type,op_type_r)
                                                                                                 if priority do
                                                                                                     send(pidsd, {:read, :perm_delayed, self})
                                                                                                     receive do
@@ -265,8 +264,8 @@ defmodule Actor do
                                                             end
                                                         end
                                                         )
-                                                        request_receiver(pidmutex, pidsd, id)
         end
+        request_receiver(pidmutex, pidsd, id)
     end
     
     # Registro proceso receptor permission
@@ -293,7 +292,7 @@ defmodule Actor do
                                                                 waiting_from = List.update_at(waiting_from,j-1,&(&1 = true))
                                                                 send(pidsd, {:write, :waiting_from, waiting_from})
                                                                 n = length(waiting_from)
-                                                                all_done = for n <- 1..(n+1), do: true
+                                                                all_done = for n <- 1..n, do: true
                                                                 if (waiting_from == all_done) do
                                                                     send(pidprincipal,{:permission_ok})
                                                                 end
@@ -302,8 +301,8 @@ defmodule Actor do
                                                 end
                                              end
                                             )
-                                            permission_receiver(pidmutex, pidsd, pidprincipal, id)
         end
+        permission_receiver(pidmutex, pidsd, pidprincipal, id)
     end
 
     ########################################################################################################
@@ -320,7 +319,7 @@ defmodule Actor do
         # Obtener lectores y escritores
         actors = Enum.filter(system_nodes, fn(x) -> Atom.to_string(x) =~ "alumno" || Atom.to_string(x) =~ "profesor" end)
         # Obtener repositorio
-        repository = Enum.filter(system_nodes, fn(x) -> Atom.to_string(x) =~ "repositorio" end)
+        repository = hd(Enum.filter(system_nodes, fn(x) -> Atom.to_string(x) =~ "repositorio" end))
 
         n = length(actors)
         waiting_from = for n <- 1..(n+1), do: false
