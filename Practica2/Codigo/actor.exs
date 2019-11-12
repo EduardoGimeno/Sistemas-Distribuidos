@@ -19,17 +19,18 @@ defmodule Actor do
         receive do
             {:wait, pid} -> if counter == 1 do
                                 send(pid, {:ok})
-                                mutex(0, [])
+                                mutex(0, waiting)
                             else
-                                mutex(counter, [pid])
+                                mutex(counter, waiting ++ [pid])
                             end
 
             {:signal, pid} -> if length(waiting) == 0 do
                                 mutex(1, waiting)
                             else
                                 wake = hd(waiting)
+                                n_waiting = tl(waiting)
                                 send(wake, {:ok})
-                                mutex(0, [])
+                                mutex(0, n_waiting)
                             end
         end
     end
