@@ -32,6 +32,7 @@ end
 defmodule Worker do
     
     def init do
+        Process.register(self,:worker_process)
         Process.sleep(10000)
         worker(&Fib.fibonacci_tr/1, 1, :rand.uniform(10))
     end

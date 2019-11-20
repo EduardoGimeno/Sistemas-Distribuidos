@@ -7,34 +7,38 @@
 
 defmodule Master do
     
-    attend_request(client_pid, n, [worker | workers], timeout, retry_count) do
-        if (retry_count > 0) do
-            send(worker, {:req, {self, n}})
+    # Función que se comunica con los workers y devuelve el resultado al cliente.
+    attend_request(client_pid, n, timeout, workers) do
+        if (length(workers > 0)) do
+            worker = hd(workers)
+            send({:worker_process,worker}, {:req, {self, n}})
             receive do
                 {res} -> send(client_pid,{:result,res})
                 IO.puts("OK: Resultado enviado al cliente")
             after
-                timeout -> attend_request(client_pid, n, workers, timeout, retry_count-1)
-                IO.puts("ERROR: Timeout vencido. Reintentando...")
+                timeout ->
+                    workers = tl(workers)
+                    attend_request(client_pid, n, workers, timeout)
+                    IO.puts("ERROR: Timeout vencido. Reintentando...")
             end
         else
             IO.puts("ERROR: Todos los workers han fallado")
         end
     end
     
-    master_process(workers, timeout, retry_count) do
+    # Función que recibe peticiones de los clientes
+    master_process(timeout) do
         receive do
-            {client_pid, n} -> attend_request(client_pid, n, workers, timeout, retry_count)
+            {client_pid, n} ->  workers = Enum.filter(Node.list(), fn(x) -> Atom.to_string(x) =~ "worker"
+                                attend_request(client_pid, n, timeout, workers)
         end
-        master(workers, timeout, retry_count)
+        master(timeout)
     end
-
+    
     def init () do
         Process.register(self,:master_process)
         timeout = 25000
-        retry_count = 10
-        workers = Enum.filter(Node.list(), fn(x) -> Atom.to_string(x) =~ "worker"
-        master_process(workers, timeout, retry_count)
+        master_process(timeout)
     end
     
 end
