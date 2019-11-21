@@ -58,39 +58,27 @@ end
 defmodule Master do
     def listen_client(pool_pid) do
         receive do
-            {c_pid, imp, interval, op} -> spawn(fn -> callWorker(pool_pid, c_pid, imp, interval, op) end)
+            {c_pid, n} -> spawn(fn -> callWorker(pool_pid, c_pid, n) end)
         end
         listen_client(pool_pid)
     end
 
-	def callWorker(pool_pid, c_pid, imp, interval, op) do
+	def callWorker(pool_pid, c_pid, n) do
 		send(pool_pid, {self, :nuevo_worker})
-		if imp == :fib do
-			receive do
-				{:worker, worker_pid} -> Node.spawn(worker_pid, fn -> time1 = :os.system_time(:millisecond)
-      						                           				  fibonacci_list = Enum.map(interval, fn(x) -> Fib.fibonacci(x) end)
-      							                       				  time2 = :os.system_time(:millisecond)
-                                                       				  send(c_pid, {:result, time2 - time1, fibonacci_list})
-										 end) 
-			end
-		else
-			receive do
-				{:worker, worker_pid} -> Node.spawn(worker_pid, fn -> time1 = :os.system_time(:millisecond)
-      						                           				  fibonacci_list = Enum.map(interval, fn(x) -> Fib.fibonacci_tr(x) end)
-      							                       				  time2 = :os.system_time(:millisecond)
-                                                       				  send(c_pid, {:result, time2 - time1, fibonacci_list})
-										 end) 
-			end
+		receive do
+			{:worker, worker_pid} -> send({:worker, worker_pid}, {:req {c_pid, n}})
 		end
 	end
 end
 
 defmodule Pool do
-    def listen_master([worker_pid|tail]) do
+    def listen_master(worker_list) do
         receive do
-            {server_pid, :nuevo_worker} -> send(server_pid, {:worker, worker_pid}) 
+            {server_pid, :nuevo_worker} -> worker_pid = hd(worker_list)
+										   new_worker_list = tl(worker_list)
+										   send(server_pid, {:worker, worker_pid})
+										   listen_master(new_worker_list ++ [worker_pid]) 
         end
-		listen_master(tail++[worker_pid])
     end
 
 	def initPool() do
@@ -100,24 +88,34 @@ defmodule Pool do
 end
 
 defmodule Cliente do
-
-  defp launch(pid, 1, timeout) do
-	send(pid, {self, 1500})
-	receive do 
-		{:result, l} -> IO.puts("OK: Resultado recibido")
-	after 
-		timeout -> IO.puts("ERROR: Timeout vencido. Reintentando...") 
-				   launch(pid, 1, timeout)
+  
+  def launchp(pidp, pidm, n, timeout, it, k, retries) do
+	send(pidm, {self, n})
+	receive do
+		{l} -> IO.puts("OK: Resultado recibido #{it}")
+	after
+		timeout -> if k <= retries do
+				   		IO.puts("ERROR: Timeout vencido. Reintentando... #{it}") 
+				   		launchp(pidp, pidm, n, timeout, it, k+1, retries)
+				   else
+				   		IO.puts("ERROR: Reintentos agotados #{it}")
+				   end
 	end
   end
 
+  defp launch(pid, 1) do
+	spawn(Cliente, :launchp, [self, pid, 1500, 2500, 1, 1, 10])
+  end
+
   defp launch(pid, n) when n != 1 do
-  	if rem(n, 3) == 0, do: number = 100, else: number = 36
-	send(pid, {self, :random.uniform(number)})
-	receive do
-		{:result, l} -> l
+  	if rem(n, 3) == 0 do 
+	  	number = 100 
+		spawn(Cliente, :launchp, [self, pid, :random.uniform(number), 2500, n, 1, 10])
+	else 
+		number = 36
+		spawn(Cliente, :launchp, [self, pid, :random.uniform(number), 2500, n, 1, 10])
 	end
-	launch(pid, n - 1)
+	launch(pid, n-1)
   end 
   
   def genera_workload(server_pid) do
