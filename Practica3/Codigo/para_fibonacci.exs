@@ -26,6 +26,7 @@ end
 defmodule Worker do
     
 	def init do
+		Process.register(self, :worker)
 		Process.sleep(10000)
 		worker(&Fib.fibonacci_tr/1, 1, :rand.uniform(10))
 	end
@@ -49,7 +50,7 @@ defmodule Worker do
 			[op, false]
 		end
 		receive do
-			{:req, {pid, args}} -> if not omission, do: send(pid, op.(args))
+			{:req, {pid, args}} -> if not omission, do: send(pid, {:result, op.(args)})
 		end	
 		worker(new_op, rem(service_count + 1, k), k)
 	end
@@ -58,7 +59,11 @@ end
 defmodule Master do
     def listen_client(pool_pid) do
         receive do
-            {c_pid, n} -> spawn(fn -> callWorker(pool_pid, c_pid, n) end)
+            {c_pid, n} -> if n == 1500 do
+								send(c_pid, {:not_supported})
+						  else
+					      		spawn(fn -> callWorker(pool_pid, c_pid, n) end)
+						  end
         end
         listen_client(pool_pid)
     end
@@ -66,7 +71,7 @@ defmodule Master do
 	def callWorker(pool_pid, c_pid, n) do
 		send(pool_pid, {self, :nuevo_worker})
 		receive do
-			{:worker, worker_pid} -> send({:worker, worker_pid}, {:req {c_pid, n}})
+			{:worker, worker_pid} -> send({:worker, worker_pid}, {:req, {c_pid, n}})
 		end
 	end
 end
@@ -92,7 +97,8 @@ defmodule Cliente do
   def launchp(pidp, pidm, n, timeout, it, k, retries) do
 	send(pidm, {self, n})
 	receive do
-		{l} -> IO.puts("OK: Resultado recibido #{it}")
+		{:result, l} -> IO.puts("OK: Resultado recibido #{it}")
+		{:not_supported} -> IO.puts("OK: Operacion no soportada #{it}")
 	after
 		timeout -> if k <= retries do
 				   		IO.puts("ERROR: Timeout vencido. Reintentando... #{it}") 
