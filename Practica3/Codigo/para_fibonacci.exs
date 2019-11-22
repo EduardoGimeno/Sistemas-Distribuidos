@@ -1,3 +1,10 @@
+# AUTORES: Eduardo Gimeno y Sergio Alvarez
+# NIAs: 721615 y 740241
+# FICHERO: para_fibonacci.exs
+# FECHA: 22 de noviembre de 2019
+# TIEMPO: 8 horas
+# DESCRIPCION: Código para el escenario 3 de la práctica 1 con detección de fallos
+
 defmodule Fib do
 	def fibonacci(0), do: 0
 	def fibonacci(1), do: 1
@@ -92,42 +99,62 @@ defmodule Pool do
 	end
 end
 
+defmodule Proxy do
+	def listen_client(master_pid) do
+		receive do
+			{c_pid, n} -> spawn(Proxy, :send_request, [c_pid, master_pid, n, 2500, 0, 10]) 
+		end
+		listen_client(master_pid)
+	end
+
+	def send_request(c_pid, master_pid, n, timeout, k, retries) do
+		send(master_pid, {self, n})
+		receive do
+			{:result, l} -> IO.inspect(c_pid, label: "OK: Resultado recibido")
+							send(c_pid, {:result, l})
+			{:not_supported} -> IO.inspect(c_pid, label: "OK: Operacion no soportada")
+								send(c_pid, {:not_supported})
+		after
+			timeout -> if k <= retries do
+				  	 		IO.inspect(c_pid, label: "ERROR: Timeout vencido. Reintentando...") 
+				   			send_request(c_pid, master_pid, n, timeout, k+1, retries)
+				 	   else
+				   			IO.inspect(c_pid, label: "ERROR: Reintentos agotados")
+							send(c_pid, {:expired})
+				  	   end
+		end
+    end
+end
+
 defmodule Cliente do
-  
-  def launchp(pidp, pidm, n, timeout, it, k, retries) do
-	send(pidm, {self, n})
+  def send_request(proxy_pid, n) do
+	send(proxy_pid, {self, n})
 	receive do
-		{:result, l} -> IO.puts("OK: Resultado recibido #{it}")
-		{:not_supported} -> IO.puts("OK: Operacion no soportada #{it}")
-	after
-		timeout -> if k <= retries do
-				   		IO.puts("ERROR: Timeout vencido. Reintentando... #{it}") 
-				   		launchp(pidp, pidm, n, timeout, it, k+1, retries)
-				   else
-				   		IO.puts("ERROR: Reintentos agotados #{it}")
-				   end
+		{:result, l} -> IO.inspect(self, label: "OK: Resultado recibido")
+		{:not_supported} -> IO.inspect(self, label: "ERROR: Operacion no soportada")
+		{:expired} -> IO.inspect(self, label: "ERROR: Reintentos agotados")
 	end
   end
 
   defp launch(pid, 1) do
-	spawn(Cliente, :launchp, [self, pid, 1500, 2500, 1, 1, 10])
+	spawn(Cliente, :send_request, [pid, 1500])
   end
 
   defp launch(pid, n) when n != 1 do
   	if rem(n, 3) == 0 do 
 	  	number = 100 
-		spawn(Cliente, :launchp, [self, pid, :random.uniform(number), 2500, n, 1, 10])
+		spawn(Cliente, :send_request, [pid, :random.uniform(number)])
 	else 
 		number = 36
-		spawn(Cliente, :launchp, [self, pid, :random.uniform(number), 2500, n, 1, 10])
+		spawn(Cliente, :send_request, [pid, :random.uniform(number)])
 	end
 	launch(pid, n-1)
   end 
   
-  def genera_workload(server_pid) do
-	launch(server_pid, 6 + :random.uniform(2))
+  def genera_workload(proxy_pid) do
+	launch(proxy_pid, 6 + :random.uniform(2))
 	Process.sleep(2000 + :random.uniform(200))
-  	genera_workload(server_pid)
+  	genera_workload(proxy_pid)
   end
  
 end
