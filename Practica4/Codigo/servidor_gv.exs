@@ -99,6 +99,7 @@ defmodule ServidorGV do
 
                                 # Comprobar si se añade a la vista tentativa como 
                                 # primario o copia
+                                # Nueva vista
                                 cond do
                                     length(latidos) == 1 ->
                                         vista_tentativa = %{vista_tentativa | 
@@ -111,18 +112,66 @@ defmodule ServidorGV do
                                         vista_tentativa = %{vista_tentativa |
                                                 copia: nodo_emisor}
                                 end
+                            # El nodo emisor tiene una vista
                             else
+                                # Reiniciar latido para el nodo que lo ha enviado
+                                latidos = for i <- latidos do
+                                    if (elem(i, 0) == nodo_emisor) do
+                                        {elem(i, 0), 0}
+                                    else
+                                        i
+                                    end
+                                end
 
+                                # Si nodo emisor es el primario, la vista tentativa es la
+                                # vista válida
+                                if (n_vista_latido == vista_tentativa.num_vista and 
+                                    nodo_emisor == vista_tentativa.primario) do
+                                    vista_valida = vista_tentativa
+                                end
                             end
                         end
 
+                        # Enviar al nodo emisor la vista tentativa
+                        send({:servidor_sa, nodo_emisor}, {:vista_tentativa,
+                              vista_tentativa, vista_tentativa == vista_valida})
+
+                        # Nuevo estado
+                        {vista_valida, vista_tentativa, latidos, consistencia}
+
                     {:obten_vista_valida, pid} ->
 
-                        ### VUESTRO CODIGO                
+                        # Enviar la vista válida
+                        send(pid, {:vista_valida, vista_valida,
+                                   vista_tentativa == vista_valida})
+
+                        # Nuevo estado
+                        {vista_valida, vista_tentativa, latidos, consistencia}                
 
                     :procesa_situacion_servidores ->
                 
-                        ### VUESTRO CODIGO
+                        if (length(latidos) > 0) do
+                            # Actualizar latidos
+                            latidos = for i <- latidos, do: {elem(i, 0), elem(i, 1) + 1}
+
+                            # Comprobar si el primario o la copia han caído
+                            primario_caido = estado(vista_valida.primario, latidos)
+                            copia_caida = estado(vista_valida.copia, latidos)
+
+                            # Descartar nodos caídos
+                            latidos = eliminar_caidos(latidos)
+
+                            # Fallo, primario y copia han caído, se pierde la consistencia
+                            if (primario_caido == true and copia_caida == true) do
+                                vista_valida = vista_inicial()
+                                consistencia = false
+                                IO.puts("FALLO: Primario y copia han caido")
+                            else
+                                # Primario ha caído, promocionar copia a primario en la
+                                # vista tentativa
+
+                            end
+                        end
 
         end
 
