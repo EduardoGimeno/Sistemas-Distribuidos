@@ -88,7 +88,6 @@ defmodule ServidorGV do
     """
     defp bucle_recepcion(vista_valida, vista_tentativa, latidos, consistencia) do
         {vista_valida, vista_tentativa, latidos, consistencia} = receive do
-
                     {:latido, n_vista_latido, nodo_emisor} ->
                         # Primario y copia activos
                         if (consistencia == true) do
@@ -155,29 +154,114 @@ defmodule ServidorGV do
                             latidos = for i <- latidos, do: {elem(i, 0), elem(i, 1) + 1}
 
                             # Comprobar si el primario o la copia han caído
-                            primario_caido = estado(vista_valida.primario, latidos)
-                            copia_caida = estado(vista_valida.copia, latidos)
+                            primario_vivo = estado(vista_valida.primario, latidos)
+                            copia_viva = estado(vista_valida.copia, latidos)
 
                             # Descartar nodos caídos
                             latidos = eliminar_caidos(latidos)
 
                             # Fallo, primario y copia han caído, se pierde la consistencia
-                            if (primario_caido == true and copia_caida == true) do
+                            if (primario_vivo == false and copia_viva == false) do
                                 vista_valida = vista_inicial()
                                 consistencia = false
                                 IO.puts("FALLO: Primario y copia han caido")
                             else
-                                # Primario ha caído, promocionar copia a primario en la
-                                # vista tentativa
+                                if (primario_vivo == false) do
+                                    # Primario ha caído, promocionar copia a primario en la
+                                    # vista tentativa (generar nueva vista)
+                                    vista_tentativa = %{vista_tentativa | num_vista:
+                                                vista_tentativa.num_vista + 1}
+                                    vista_tentativa = %{vista_tentativa |
+                                                primario: vista_tentativa.copia}
 
+                                    # Promocionar nodo en espera a copia si existe
+                                    if (length(latidos) > 1) do
+                                        vista_tentativa = %{vista_tentativa | copia:
+                                                elem(Enum.at(latidos, 1), 0)}
+                                    else
+                                        vista_tentativa = %{vista_tentativa |
+                                                    copia: :undefined}
+                                        IO.puts("AVISO: Copia indefinida")
+                                    end
+                                end
+
+                                if (copia_viva == false) do
+                                    # Copia ha caído, promocionar nodo en espera a copia,
+                                    # si existe, en la vista tentativa (generar nueva vista)
+                                    vista_tentativa = %{vista_tentativa | num_vista:
+                                                vista_tentativa.num_vista + 1}
+                                    
+                                    if (length(latidos) > 1) do
+                                        vista_tentativa = %{vista_tentativa | copia:
+                                                elem(Enum.at(latidos, 1), 0)}
+                                    else
+                                        vista_tentativa = %{vista_tentativa |
+                                                    copia: :undefined}
+                                        IO.puts("AVISO: Copia indefinida")
+                                    end
+                                end 
                             end
                         end
-
+                        # Nuevo estado
+                        {vista_valida, vista_tentativa, latidos, consistencia}
         end
-
-        bucle_recepcion(??????????)
+        bucle_recepcion(vista_valida, vista_tentativa, latidos, consistencia)
     end
     
     # OTRAS FUNCIONES PRIVADAS VUESTRAS
+    
+    @doc """
+      Devuelve true si el nodo se encuentra activo o indefinido, false
+      en cualquier otro caso
+    """
+    defp estado(nodo, [latido | latidos]) do
+        # Nodo indefinido
+        if (nodo == :undefined) do
+            true
+        else   
+            # No hay nodos en el sistema
+            if (length([latido | latidos]) == 0) do
+                false
+            else
+                # Nodo del que se quiere saber el estado
+                if (elem(latido, 0) == nodo) do
+                    # Nodo ha superado el número de latidos fallidos
+                    if (elem(latido, 1) > latidos_fallidos()) do
+                        false
+                    else
+                        true
+                    end
+                # Seguir buscando
+                else
+                    # Comprobar si quedan más elementos en la lista
+                    if (length(latidos) > 0) do
+                        estado(nodo, latidos)
+                    else
+                        false
+                    end
+                end
+            end
+        end
+    end
 
+    @doc """
+      Eliminar nodos que hayan superado el número de latidos fallidos
+    """
+    defp eliminar_caidos([latido | latidos]) do
+        if (elem(latido, 1) <= latidos_fallidos()) do
+            # No ha superado, se mantiene
+            if (length(latidos) > 0) do
+                [latido] ++ eliminar_caidos(latidos)
+            else
+                [latido]
+            end
+        else
+            # Descartar nodo
+            if (length(latidos) > 0) do
+                eliminar_caidos(latidos)
+            else
+                []
+            end
+        end
+    end
 end
