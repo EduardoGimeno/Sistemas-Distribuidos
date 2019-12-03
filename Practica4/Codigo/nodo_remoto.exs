@@ -14,6 +14,8 @@ defmodule NodoRemoto do
   @spec start(String.t(), String.t(), String.t()) :: node
   def start(nombre, host, fichero_programa_cargar) do
     System.cmd("ssh", [
+      # Cambiar usuario
+      "-l a721615",
       host,
       "elixir --name #{nombre}@#{host} --cookie palabrasecreta",
       "--erl  \'-kernel_inet_dist_listen_min 32000\'",
