@@ -25,7 +25,7 @@ defmodule GestorVistasTest do
   # Para gestionar nodos y maquinas
   setup_all do
     # Poner en marcha los servidores, obtener nodos
-    maquinas = ["155.210.154.200", "155.210.154.197", 
+    maquinas = ["localhost.localhost", "155.210.154.197", 
                 "155.210.154.198", "155.210.154.199"] 
     # maquinas = ["localhost.localhost"]
     # devuelve una mapa de nodos del servidor y clientes

@@ -6,4 +6,4 @@ elixir  --name maestro@127.0.0.1 --cookie 'palabrasecreta' \
 
 #Una vez terminada ejecución programa, eliminar demonio de conexiones red Erlang
 # Hay que extenderlo para que elimine epmds de OTRAS maquinas fisicas !!!
-pkill epmd
+sudo pkill epmd
