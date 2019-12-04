@@ -4,6 +4,7 @@
 # FECHA: diciembre de 2019
 # TIEMPO: 13 h
 # DESCRIPCIÓN: Servidor gestor de vistas
+
 # Para utilizar IEx.pry
 require IEx
 
@@ -15,7 +16,6 @@ defmodule ServidorGV do
   # Tipo estructura de datos que guarda el estado del servidor de vistas
   # COMPLETAR  con lo campos necesarios para gestionar
   # el estado del gestor de vistas
-  # defstruct num_vista: 0, primario: :undefined, copia: :undefined
   defstruct vista_valida: %{num_vista: 0, primario: :undefined, copia: :undefined},
             vista_tentativa: %{num_vista: 0, primario: :undefined, copia: :undefined},
             latidos: [],
@@ -134,6 +134,7 @@ defmodule ServidorGV do
       # Caída o se incorpora al sistema
       if n_vista_latido == 0 do
         # Comprobar si ha caído el primario o la copia y ha rearrancado rápidamente
+        # Eliminar nodo de la lista de latidos si ha rearrancado rápidamente
         actualizar_latidos =
           if length(nuevo_estado.latidos) > 0 do
             eliminar_caido(nodo_emisor, nuevo_estado.latidos)
@@ -143,6 +144,8 @@ defmodule ServidorGV do
 
         nuevo_estado = %{nuevo_estado | latidos: actualizar_latidos}
 
+        # Promocionar copia a primario o nodo en espera a copia en caso
+        # de que haya rearrancado rápidamente
         nuevo_estado =
           cond do
             nuevo_estado.vista_tentativa.primario == nodo_emisor ->
