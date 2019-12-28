@@ -300,6 +300,16 @@ defmodule ServidorGV do
         if primario_vivo == false and copia_viva == false do
           actualizar_consistencia = false
           nuevo_estado = %{nuevo_estado | consistencia: actualizar_consistencia}
+          actualizar_vista_tentativa = nuevo_estado.vista_tentativa
+          actualizar_vista_tentativa = %{
+            actualizar_vista_tentativa
+            | primario: :undefined
+          }
+          actualizar_vista_tentativa = %{
+            actualizar_vista_tentativa
+            | copia: :undefined
+          }
+          nuevo_estado = %{nuevo_estado | vista_tentativa: actualizar_vista_tentativa}
           IO.puts("FALLO: Primario y copia han caido")
           nuevo_estado
         else
@@ -310,6 +320,12 @@ defmodule ServidorGV do
                 if nuevo_estado.vista_tentativa.num_vista != nuevo_estado.vista_valida.num_vista do
                   actualizar_consistencia = false
                   nuevo_estado = %{nuevo_estado | consistencia: actualizar_consistencia}
+                  actualizar_vista_tentativa = nuevo_estado.vista_tentativa
+                  actualizar_vista_tentativa = %{
+                    actualizar_vista_tentativa
+                    | primario: :undefined
+                  }
+                  nuevo_estado = %{nuevo_estado | vista_tentativa: actualizar_vista_tentativa}
                   IO.puts("FALLO: Primario ha caído sin confirmar vista")
                   nuevo_estado
                 else
@@ -367,6 +383,12 @@ defmodule ServidorGV do
                 if nuevo_estado.vista_tentativa.num_vista != nuevo_estado.vista_valida.num_vista do
                   actualizar_consistencia = false
                   nuevo_estado = %{nuevo_estado | consistencia: actualizar_consistencia}
+                  actualizar_vista_tentativa = nuevo_estado.vista_tentativa
+                  actualizar_vista_tentativa = %{
+                    actualizar_vista_tentativa
+                    | primario: :undefined
+                  }
+                  nuevo_estado = %{nuevo_estado | vista_tentativa: actualizar_vista_tentativa}
                   IO.puts("FALLO: Primario ha caído sin confirmar vista")
                   nuevo_estado
                 else
