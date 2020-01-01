@@ -3,7 +3,11 @@ Code.require_file("#{__DIR__}/cliente_gv.exs")
 defmodule ServidorSA do
     
     # estado del servidor            
-    defstruct   ???????????????????????
+    defstruct num_vista: 0
+              primario: :undefined
+              copia: :undefined
+              valida: false
+              datos: %{}
 
 
     @intervalo_latido 50
@@ -48,29 +52,35 @@ defmodule ServidorSA do
 
     #------------- VUESTRO CODIGO DE INICIALIZACION AQUI..........
 
+        spawn(__MODULE__, :generar_latido, [self()])
+
+        estado = %{num_vista: 0, primario: :undefined, copia: :undefined
+                   valida: false, datos: %{}}
 
          # Poner estado inicial
-        bucle_recepcion_principal(???) 
+        bucle_recepcion_principal(estado, nodo_servidor_gv) 
     end
 
+    @doc """
+        Generar un latido cada @intervalo_latido ms, funciona como
+        una alarma
+    """
+    def generar_latido(pid) do
+        send(pid, {:enviar_latido})
+        Process.sleep(@intervalo_latido)
+        generar_latido(pid)
+    end
 
-    defp bucle_recepcion_principal(???) do
-        ??? = receive do
+    defp bucle_recepcion_principal(estado, nodo_servidor_gv) do
+        {estado, nodo_servidor_gv} = receive do
 
-                    # Solicitudes de lectura y escritura
-                    # de clientes del servicio alm.
-                  {op, param, nodo_origen}  ->
+            # Solicitudes de lectura y escritura
+            # de clientes del servicio alm.
+            {op, param, nodo_origen}  ->
 
+        end
 
-                        # ----------------- vuestro código
-
-
-                  # --------------- OTROS MENSAJES QUE NECESITEIS
-
-
-               end
-
-        bucle_recepcion_principal(???)
+        bucle_recepcion_principal(estado, nodo_servidor_gv)
     end
     
     #--------- Otras funciones privadas que necesiteis .......
