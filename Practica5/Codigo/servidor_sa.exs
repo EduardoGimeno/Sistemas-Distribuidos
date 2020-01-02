@@ -73,11 +73,70 @@ defmodule ServidorSA do
 
     defp bucle_recepcion_principal(estado, nodo_servidor_gv) do
         {estado, nodo_servidor_gv} = receive do
-
             # Solicitudes de lectura y escritura
             # de clientes del servicio alm.
-            {op, param, nodo_origen}  ->
+            {:lee, clave, pid} -> 
+                if (estado.valida == true && estado.primario == Node.self()) do
+                    # Primario con vista válida
+                    valor = Map.get(estado.datos, String.to_atom(clave))
+                    # Comprobar si es nulo
+                    valor = if (valor == nil) do
+                                ""
+                            else
+                                valor
+                            end
+                    # Enviar resultado al cliente
+                    send({:cliente_sa, pid}, {:resultado, valor})
+                else
+                    # No primario o vista no válida
+                    send({:cliente_sa, pid}, {:error})
+                end
 
+                # Devolver estado
+                {estado, nodo_servidor_gv}
+
+            {:escribe_generico, {clave, nuevo_valor, con_hash}, pid} ->
+                {estado} = if (estado.valida == true && 
+                               estado.primario == Node.self()) do
+                    # Primario con vista válida
+                    # Escribir nuevo valor en la base de datos
+                    {valor, estado, exito} = escribir_dato(estado, clave, nuevo_valor, 
+                                                           con_hash)
+                    # Enviar a la copia para que lo escriba
+                    send({:servidor_sa, estado.copia}, {:escribe_generico, 
+                          {clave, nuevo_valor, con_hash}, Node.self()})
+                    # Enviar al cliente la confirmación
+                    receive do
+                        {:exito_copia} -> send({:cliente_sa, pid}, {:resultado, valor})
+                        {:error_copia} -> send({:servidor_sa, pid}, {:error})
+                    end 
+                    {estado}
+                else
+                    {estado} = if (estado.valida == true && estado.copia == Node.self()
+                                   && estado.primario == pid) do
+                        # Copia con vista válida
+                        {valor, estado, exito} = escribir_dato(estado, clave, nuevo_valor, 
+                                                               con_hash)
+                        # Informar al primario si la operación ha tenido exito
+                        if (exito == true) do
+                            send({:servidor_sa, pid}, {:exito_copia})
+                        else
+                            send({:servidor_sa, pid}, {:error_copia})
+                        end
+                        {estado}
+                    else
+                        # No primario, ni copia o vista no válida
+                        send({:servidor_sa, pid}, {:error_copia})
+                    end
+                    {estado}
+                end
+
+                # Devolver estado
+                {estado, nodo_servidor_gv}
+
+            {:enviar_latido} ->
+
+            {:copiar_datos, datos} ->
         end
 
         bucle_recepcion_principal(estado, nodo_servidor_gv)
