@@ -1,3 +1,10 @@
+# AUTOR: Eduardo Gimeno y Sergio Álvarez
+# NIAs: 721615 y 740241
+# FICHERO: servicio_almacenamiento_tests.exs
+# FECHA: 11 de enero de 2020
+# TIEMPO: 4 h
+# DESCRIPCIÓN: Tests de servicio de almacenamiento
+
 Code.require_file("#{__DIR__}/nodo_remoto.exs")
 Code.require_file("#{__DIR__}/servidor_gv.exs")
 Code.require_file("#{__DIR__}/cliente_gv.exs")
@@ -14,7 +21,7 @@ defmodule  ServicioAlmacenamientoTest do
 
     # @moduletag timeout 100  para timeouts de todos lo test de este modulo
 
-    @maquinas ["127.0.0.1", "127.0.0.1", "127.0.0.1"]
+    @maquinas ["127.0.0.1", "127.0.0.1", "127.0.0.1", "127.0.0.1"]
     # @maquinas ["155.210.154.192", "155.210.154.193", "155.210.154.194"]
 
     #@latidos_fallidos 4
@@ -95,7 +102,7 @@ defmodule  ServicioAlmacenamientoTest do
         stopServidores(mapa_nodos, @maquinas)
     end
 
-    #@tag :deshabilitado
+    @tag :deshabilitado
     test "Test 3 : Mismos valores concurrentes" do
         IO.puts("Test: Escrituras mismos valores clientes concurrentes ...")
 
@@ -125,15 +132,15 @@ defmodule  ServicioAlmacenamientoTest do
          valor1primario = ClienteSA.lee(mapa_nodos.ca1, "0")
          valor2primario = ClienteSA.lee(mapa_nodos.ca3, "1")
 
-         # Forzar parada de primario
-         NodoRemoto.stop(ClienteGV.primario(mapa_nodos.gv))
+        # Forzar parada de primario
+        NodoRemoto.stop(ClienteGV.primario(mapa_nodos.gv))
 
         # Esperar detección fallo y reconfiguración copia a primario
         Process.sleep(700)
 
         # Obtener valor de clave "0" y "1" con segundo primario (copia anterior)
-         valor1copia = ClienteSA.lee(mapa_nodos.ca3, "0")
-         valor2copia = ClienteSA.lee(mapa_nodos.ca2, "1")
+        valor1copia = ClienteSA.lee(mapa_nodos.ca3, "0")
+        valor2copia = ClienteSA.lee(mapa_nodos.ca2, "1")
 
         IO.puts "valor1primario = #{valor1primario}, valor1copia = #{valor1copia}"
             <> " valor2primario = #{valor2primario}, valor2copia = #{valor2copia}"
@@ -144,7 +151,7 @@ defmodule  ServicioAlmacenamientoTest do
         # Parar todos los nodos y epmds
         stopServidores(mapa_nodos, @maquinas)
 
-         IO.puts(" ... Superado")
+        IO.puts(" ... Superado")
     end
 
 
@@ -158,13 +165,13 @@ defmodule  ServicioAlmacenamientoTest do
         # Para que funcione bien la función  ClienteGV.obten_vista
         Process.register(self(), :servidor_sa)
 
-        # Arrancar nodos : 1 GV, 3 servidores y 3 cliente de almacenamiento
+        # Arrancar nodos : 1 GV, 4 servidores y 3 cliente de almacenamiento
         mapa_nodos = startServidores(["ca1", "ca2", "ca3"],
                                      ["sa1", "sa2", "sa3", "sa4"],
                                      @maquinas)
 
         # Espera configuracion y relacion entre nodos
-        Process.sleep(1500)
+        Process.sleep(4000)
 
         # Comprobar primeros nodos primario y copia
         {%{primario: p, copia: c}, _ok} = ClienteGV.obten_vista(mapa_nodos.gv)
@@ -192,27 +199,27 @@ defmodule  ServicioAlmacenamientoTest do
         valor2copia = ClienteSA.lee(mapa_nodos.ca2, "1")
 
         IO.puts "valor1primario = #{valor1primario}, valor1copia = #{valor1copia}"
-            <> "valor2primario = #{valor2primario}, valor2copia = #{valor2copia}"
+            <> " valor2primario = #{valor2primario}, valor2copia = #{valor2copia}"
         # Verificar valores obtenidos con primario y copia inicial
         assert valor1primario == valor1copia
         assert valor2primario == valor2copia
 
         # Forzar parada de primario
-        #NodoRemoto.stop(ClienteGV.primario(mapa_nodos.gv))
+        NodoRemoto.stop(ClienteGV.primario(mapa_nodos.gv))
 
         # Esperar detección fallo y reconfiguración nodo en espera a copia
-        #Process.sleep(700)
+        Process.sleep(700)
 
         # Obtener valor de clave "0" y "1" con tercer primario 
         # (nodo en esepra anterior)
-        #valor1espera = ClienteSA.lee(mapa_nodos.ca3, "0")
-        #valor2espera = ClienteSA.lee(mapa_nodos.ca2, "1")
+        valor1espera = ClienteSA.lee(mapa_nodos.ca3, "0")
+        valor2espera = ClienteSA.lee(mapa_nodos.ca2, "1")
 
-        #IO.puts "valor1primario = #{valor1primario}, valor1espera = #{valor1espera}"
-        #    <> "valor2primario = #{valor2primario}, valor2espera = #{valor2espera}"
+        IO.puts "valor1primario = #{valor1primario}, valor1espera = #{valor1espera}"
+            <> " valor2primario = #{valor2primario}, valor2espera = #{valor2espera}"
         # Verificar valores obtenidos con primario y copia inicial
-        #assert valor1primario == valor1espera
-        #assert valor2primario == valor2espera
+        assert valor1primario == valor1espera
+        assert valor2primario == valor2espera
 
         # Parar todos los nodos y epmds
         stopServidores(mapa_nodos, @maquinas)
@@ -223,6 +230,57 @@ defmodule  ServicioAlmacenamientoTest do
 
     # Test 5 : Petición de escritura inmediatamente después de la caída de nodo
     #         copia (con uno en espera que le reemplace).
+    #@tag :deshabilitado
+    test "Test 5 : Escritura despues de caida de copia" do
+        IO.puts("Test: Escritura despues de caida de copia ...")
+
+        # Para que funcione bien la función  ClienteGV.obten_vista
+        Process.register(self(), :servidor_sa)
+
+        # Arrancar nodos : 1 GV, 4 servidores y 3 cliente de almacenamiento
+        mapa_nodos = startServidores(["ca1"],
+                                     ["sa1", "sa2", "sa3", "sa4"],
+                                     @maquinas)
+
+        # Espera configuracion y relacion entre nodos
+        Process.sleep(2000)
+
+        # Comprobar primeros nodos primario y copia
+        {%{primario: p, copia: c}, _ok} = ClienteGV.obten_vista(mapa_nodos.gv)
+        assert p == mapa_nodos.sa1
+        assert c == mapa_nodos.sa2
+
+        # Parar copia
+        NodoRemoto.stop(mapa_nodos.sa2)
+
+        # Escribir tras caída
+        ClienteSA.escribe(mapa_nodos.ca1, "a", "aa")
+
+        # Esperar detección fallo y reconfiguración de nodo en espera a copia
+        Process.sleep(700)
+
+        #Obtener valor de las clave "a" con el primer primario
+        valor1primario = ClienteSA.lee(mapa_nodos.ca1, "a")
+
+        # Parar primario 
+        NodoRemoto.stop(mapa_nodos.sa1)
+
+        # Esperar detección fallo y reconfiguración copia a primario
+        Process.sleep(700)
+
+        # Obtener valor de las clave "a" con el segundo primario 
+        # (anterior copia y nodo en espera)
+        valor1copia = ClienteSA.lee(mapa_nodos.ca1, "a")
+
+        IO.puts "valor1primario = #{valor1primario}, valor1copia = #{valor1copia}"
+        # Verificar valores obtenidos con primario y copia inicial
+        assert valor1primario == valor1copia
+
+        # Parar todos los nodos y epmds
+        stopServidores(mapa_nodos, @maquinas)
+
+        IO.puts(" ... Superado")
+    end
 
 
     # Test 6 : Petición de escritura duplicada por perdida de respuesta
@@ -319,7 +377,7 @@ defmodule  ServicioAlmacenamientoTest do
         Process.sleep(miliseg)
 
         :io.format "Nodo ~p, escribe clave = ~p, valor = ~p, sleep = ~p~n",
-                    [Node.self(), clave, valor, miliseg]
+                   [Node.self(), clave, valor, miliseg]
 
         ClienteSA.escribe(nodo_cliente, clave, valor)
 

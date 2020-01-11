@@ -1,3 +1,10 @@
+# AUTOR: Eduardo Gimeno y Sergio Álvarez
+# NIAs: 721615 y 740241
+# FICHERO: servidor_sa.exs
+# FECHA: 11 de enero de 2020
+# TIEMPO: 8 h
+# DESCRIPCIÓN: Servidor de almacenamiento
+
 Code.require_file("#{__DIR__}/cliente_gv.exs")
 
 defmodule ServidorSA do
@@ -11,6 +18,8 @@ defmodule ServidorSA do
 
 
     @intervalo_latido 50
+
+    #@tiempo_espera_respuesta 30
 
 
     @doc """
@@ -99,31 +108,35 @@ defmodule ServidorSA do
                 {estado} = if (estado.valida == true && 
                                estado.primario == Node.self()) do
                     # Primario con vista válida
-                    # Escribir nuevo valor en la base de datos
-                    {valor, estado} = escribir_dato(estado, clave, nuevo_valor, 
-                                                           con_hash)
                     # Enviar a la copia para que lo escriba
                     send({:servidor_sa, estado.copia}, {:escribe_generico, 
                           {clave, nuevo_valor, con_hash}, Node.self()})
-                    # Enviar al cliente la confirmación
-                    receive do
-                        {:exito_copia} -> send({:cliente_sa, pid}, {:resultado, valor})
-                        {:error_copia} -> send({:cliente_sa, pid}, {:error})
-                    end 
+                    # Escribir nuevo valor en la base de datos
+                    {estado} = receive do
+                        {:ok, valor} -> {_valor, estado} = escribir_dato(estado, clave, valor, 
+                                                                         con_hash)
+                                        # Enviar al cliente la confirmación
+                                        send({:cliente_sa, pid}, {:resultado, valor})
+                                        {estado}
+                    #after @tiempo_espera_respuesta ->
+                    #    send({:cliente_sa, pid}, {:resultado, :no_soy_primario_valido})
+                    #    {estado}
+                    #end
+
                     {estado}
                 else
                     {estado} = if (estado.valida == true && estado.copia == Node.self()
                                    && estado.primario == pid) do
                         # Copia con vista válida
                         {valor, estado} = escribir_dato(estado, clave, nuevo_valor, 
-                                                               con_hash)
-                        # Informar al primario
-                        send({:servidor_sa, pid}, {:exito_copia})
+                                                        con_hash)
+                        # Enviar confirmación primario
+                        send({:servidor_sa, pid}, {:ok, valor})
         
                         {estado}
                     else
                         # No primario, ni copia o vista no válida
-                        send({:servidor_sa, pid}, {:error_copia})
+                        send({:cliente_sa, pid}, {:resultado, :no_soy_primario_valido})
 
                         {estado}
                     end
@@ -141,6 +154,7 @@ defmodule ServidorSA do
                                     primario: vista.primario,
                                     copia: vista.copia,
                                     valida: valida}
+
                 # Primer primario
                 if (estado.primario == Node.self() && estado.num_vista == 1) do
                     ClienteGV.latido(nodo_servidor_gv, -1)
@@ -188,8 +202,7 @@ defmodule ServidorSA do
         end
         
         estado = %{estado | datos: Map.put(estado.datos, 
-                                           String.to_atom(clave),
-                                           valor)}
+                                           String.to_atom(clave), valor)}
         {valor, estado}
     end
 

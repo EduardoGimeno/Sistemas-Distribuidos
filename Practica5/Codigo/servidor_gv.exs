@@ -1,7 +1,7 @@
 # AUTOR: Eduardo Gimeno y Sergio Álvarez
 # NIAs: 721615 y 740241
 # FICHERO: servidor_gv.exs
-# FECHA: diciembre de 2019
+# FECHA: 12 diciembre de 2019
 # TIEMPO: 13 h
 # DESCRIPCIÓN: Servidor gestor de vistas
 
@@ -104,6 +104,7 @@ defmodule ServidorGV do
     nuevo_estado =
       receive do
         {:latido, n_vista_latido, nodo_emisor} ->
+          #IO.inspect("Gestionar latido de #{nodo_emisor}")
           gestionar_latido(estado, n_vista_latido, nodo_emisor)
 
         {:obten_vista_valida, pid} ->
